@@ -1,0 +1,38 @@
+{
+  "name": "docx2html",
+  "description": "a javascript docx converter to html based on docx4js",
+  "version": "0.0.1",
+  "author": {
+    "name": "Raymond Li",
+    "email": "lalalic@139.com"
+  },
+  "keywords": [
+    "docx",
+    "converter",
+    "javascript",
+	"html"
+  ],
+  "license":"MIT",
+  "readme":"README.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lalalic/docx2html.git"
+  },
+  "devDependencies": {
+    "requirejs": "*",
+	"deamdify": "*"
+  },
+  "dependencies": {
+    "docx4js": "latest"
+  },
+  "main":"main.js",
+  "browser":"browser.js",
+  "browserify":{
+	"transform":["deamdify"]
+  },
+  "scripts": {
+	"pretest": "browserify -t deamdify browser.js -o dist/docx2html.js",
+	"test": "echo 0",
+	"posttest": "uglifyjs dist/docx2html.js -o dist/docx2html.min.js"
+  }
+}

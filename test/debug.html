@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="../node_modules/requirejs/require.js"></script>
+	<script>
+		require.config({
+			baseUrl: "../",
+			paths: {
+				"jquery": "node_modules/jquery/dist/jquery",
+				"jszip": "test/jszip.min",
+				"docx4js": "../docx4js/browser"
+			},
+			deps:['docx4js']
+		});
+	</script>
+	<script>
+		function test(input){
+			require(['./converter/docx/html/factory'],function(html){
+				Docx4JS.load(input.files[0])
+					.then(function(doc){
+						input.value=""
+						$('body>div').remove()
+						doc.parse(html)
+					})
+			})
+		}
+	</script>
+</head>
+<body>
+	<input type="file" style="position:absolute;top:0" onchange="test(this)">
+</body>
+</html>
