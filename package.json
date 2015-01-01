@@ -26,12 +26,11 @@
     "docx4js": "latest"
   },
   "main":"main.js",
-  "browser":"browser.js",
   "browserify":{
 	"transform":["deamdify"]
   },
   "scripts": {
-	"pretest": "browserify -t deamdify browser.js -o dist/docx2html.js",
+	"pretest": "browserify -t deamdify -r ./main.js:docx2html -o dist/docx2html.js",
 	"test": "echo 0",
 	"posttest": "uglifyjs dist/docx2html.js -o dist/docx2html.min.js"
   }

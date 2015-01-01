@@ -6,16 +6,16 @@
 		require.config({
 			baseUrl: "../",
 			paths: {
-				"jquery": "node_modules/jquery/dist/jquery",
-				"jszip": "test/jszip.min",
-				"docx4js": "../docx4js/browser"
+				"jquery": "node_modules/docx4js/node_modules/jquery/dist/jquery",
+				"jszip": "node_modules/docx4js/test/jszip.min",
+				"tool": "parser/tool"
 			},
-			deps:['docx4js']
+			deps:['tool']
 		});
 	</script>
 	<script>
 		function test(input){
-			require(['./converter/docx/html/factory'],function(html){
+			require(['./parser/openxml/docx/document','./converter/docx/html/factory'],function(Docx4JS, html){
 				Docx4JS.load(input.files[0])
 					.then(function(doc){
 						input.value=""
