@@ -1986,8 +1986,37 @@ module.exports = Super.extend({
 },{"./drawing":9}],11:[function(require,module,exports){
 var Any = require('./converter'), __a1 = require('./document'), __a2 = require('./section'), __a3 = require('./p'), __a4 = require('./list'), __a5 = require('./span'), __a6 = require('./a'), __a7 = require('./bookmark'), __a8 = require('./text'), __a9 = require('./h'), __a10 = require('./table'), __a11 = require('./tr'), __a12 = require('./td'), __a13 = require('./header'), __a14 = require('./footer'), __a15 = require('./fieldBegin'), __a16 = require('./fieldEnd'), __a17 = require('./drawingAnchor'), __a18 = require('./shape'), __a19 = require('./img'), __a20 = require('./textbox'), __a21 = require('./style/document'), __a22 = require('./style/paragraph'), __a23 = require('./style/inline'), __a24 = require('./style/numbering'), __a25 = require('./style/table'), __a26 = require('./style/list');
 var CONVERTERS = {}, t;
-for (var i = 0, model; i < arguments.length; i++) {
-    model = arguments[i];
+var MODLES = [
+        './converter',
+        './document',
+        './section',
+        './p',
+        './list',
+        './span',
+        './a',
+        './bookmark',
+        './text',
+        './h',
+        './table',
+        './tr',
+        './td',
+        './header',
+        './footer',
+        './fieldBegin',
+        './fieldEnd',
+        './drawingAnchor',
+        './shape',
+        './img',
+        './textbox',
+        './style/document',
+        './style/paragraph',
+        './style/inline',
+        './style/numbering',
+        './style/table',
+        './style/list'
+    ];
+for (var i = 0, model; i < MODLES.length; i++) {
+    model = require(MODLES[i]);
     model.prototype.wordType && (CONVERTERS[model.prototype.wordType] = model);
 }
 function factory(wModel, doc, parent) {
