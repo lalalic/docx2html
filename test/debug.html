@@ -6,9 +6,9 @@
 		require.config({
 			baseUrl: "../",
 			paths: {
-				"jquery": "node_modules/docx4js/node_modules/jquery/dist/jquery",
 				"jszip": "node_modules/docx4js/test/jszip.min",
-				"tool": "parser/tool"
+				"tool": "node_modules/docx4js/parser/tool-nojquery",
+				"deferred": "node_modules/docx4js/node_modules/Deferred/index"
 			},
 			deps:['tool']
 		});
@@ -19,7 +19,8 @@
 				Docx4JS.load(input.files[0])
 					.then(function(doc){
 						input.value=""
-						$('body>div').remove()
+						var a=document.$1('div');
+						a && a.parentNode.removeChild(a);
 						doc.parse(html)
 					})
 			})

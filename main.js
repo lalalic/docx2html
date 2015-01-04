@@ -5,5 +5,3 @@ module.exports=function(file){
 		docx.parse(require("./converter/docx/html/factory"))
 	})
 };
-
-global.docx2html=module.exports

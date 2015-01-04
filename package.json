@@ -1,7 +1,7 @@
 {
   "name": "docx2html",
   "description": "a javascript docx converter to html based on docx4js",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": {
     "name": "Raymond Li",
     "email": "lalalic@139.com"
@@ -20,18 +20,19 @@
   },
   "devDependencies": {
     "requirejs": "*",
-	"deamdify": "*"
+	"adeamdify": "*"
   },
   "dependencies": {
     "docx4js": "latest"
   },
   "main":"main.js",
   "browserify":{
-	"transform":["deamdify"]
+	"transform":["adeamdify"]
   },
   "scripts": {
-	"pretest": "browserify -t deamdify -r ./main.js:docx2html -o dist/docx2html.js",
+	"pretest": "browserify -t adeamdify -r ./main.js:docx2html -o dist/docx2html.js",
 	"test": "echo 0",
-	"posttest": "uglifyjs dist/docx2html.js -o dist/docx2html.min.js"
+	"posttest": "uglifyjs dist/docx2html.js -o dist/docx2html.min.js",
+	"debug": "mklink /J parser \"node_modules/docx4js/parser\""
   }
 }
