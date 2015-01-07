@@ -1,8 +1,8 @@
-define(['require'],function(require){
-	return $.newClass(function(wModel,htmlDoc, parentConverter){
+define([],function(){
+	return $.newClass(function(wModel, parentConverter){
 		this.wordModel=wModel
-		this.doc=htmlDoc
 		this.parent=parentConverter
+		this.doc= parentConverter && parentConverter.doc
 		this.content=null;
 	},{
 		wordType:null,

@@ -30,9 +30,9 @@
 	"transform":["adeamdify"]
   },
   "scripts": {
-	"pretest": "browserify -t adeamdify -r ./main.js:docx2html -o dist/docx2html.js",
+	"pretest": "browserify -t adeamdify -r ./main.js:docx2html -o dist/docx2html.js  | uglifyjs dist/docx2html.js -o dist/docx2html.min.js",
+	"prepublish": "browserify -t adeamdify -r ./main.js:docx2html -o dist/docx2html.js  | uglifyjs dist/docx2html.js -o dist/docx2html.min.js",
 	"test": "echo 0",
-	"posttest": "uglifyjs dist/docx2html.js -o dist/docx2html.min.js",
 	"debug": "mklink /J parser \"node_modules/docx4js/parser\""
   }
 }

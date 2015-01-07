@@ -3,7 +3,7 @@ define(['./converter'],function(Converter){
 		wordType:'document',
 		tag:'html',
 		convert: function(){
-			this.doc=this.constructor.create()
+			this.doc=this.constructor.create(this.constructor.defaults.container)
 			this.content=this.doc
 			with(this.doc.bgStyle){
 				backgroundColor='lightgray'
@@ -46,8 +46,8 @@ define(['./converter'],function(Converter){
 			style.textDecoration='none'
 		}
 	},{
-		create: function(){
-			var root=document.createElement('div')
+		create: function(container){
+			var root=container||document.createElement('div')
 			root.id="A"+new Date().getTime()
 			document.body.appendChild(root)
 			
@@ -85,6 +85,9 @@ define(['./converter'],function(Converter){
 				delete this.section
 			}
 			return root
+		},
+		defaults:{
+			container:false
 		}
 	})
 })

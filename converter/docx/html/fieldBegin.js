@@ -5,15 +5,18 @@ define(['./converter','require', './field/hyperlink'], function(Super, require){
 		convert: function(wordField, endConverter){
 			if(!wordField)
 				return Super.prototype.convert.apply(this,arguments)
-			var converter=this.constructor.factory(wordField, this.doc, this)
+			var converter=this.constructor.factory(wordField, this)
 			converter && converter.convert(endConverter && endConverter.content)
 		}
 	},{
-		factory: function(wordField, doc, parent){
+		factory: function(wordField, parent){
 			var type=wordField.type.split('.').pop()
-			var Model=require.defined('./field/'+type) && require('./field/'+type)
-			if(Model)
-				return new Model(wordField, doc, parent)
+			try{
+				var Model=require('./field/'+type)
+				return new Model(wordField, parent)
+			}catch(e){
+				
+			}
 		}
 	})
 })

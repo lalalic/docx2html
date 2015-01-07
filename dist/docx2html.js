@@ -1589,11 +1589,11 @@ module.exports = function (Super) {
     });
 }(require('./converter'));
 },{"./converter":7}],7:[function(require,module,exports){
-module.exports = function (require) {
-    return $.newClass(function (wModel, htmlDoc, parentConverter) {
+module.exports = function () {
+    return $.newClass(function (wModel, parentConverter) {
         this.wordModel = wModel;
-        this.doc = htmlDoc;
         this.parent = parentConverter;
+        this.doc = parentConverter && parentConverter.doc;
         this.content = null;
     }, {
         wordType: null,
@@ -1617,7 +1617,7 @@ module.exports = function (require) {
             return false;
         }
     });
-}(require);
+}();
 },{}],8:[function(require,module,exports){
 module.exports = function (Converter) {
     return Converter.extend({
@@ -1992,38 +1992,12 @@ module.exports = function (Super) {
 }(require('./drawing'));
 },{"./drawing":9}],11:[function(require,module,exports){
 module.exports = function (Any) {
-    var CONVERTERS = {}, t;
+    var converters = { '*': Any };
     for (var i = 0, model; i < arguments.length; i++) {
         model = arguments[i];
-        model.prototype.wordType && (CONVERTERS[model.prototype.wordType] = model);
+        model.prototype.wordType && (converters[model.prototype.wordType] = model);
     }
-    function factory(wModel, doc, parent) {
-        var converter, Type = CONVERTERS[wModel.type], t;
-        if (!wModel.type);
-        else if (Type)
-            converter = new Type(wModel, doc, parent);
-        else if ((t = wModel.type.split('.')).length > 1) {
-            do {
-                t.pop();
-                if (Type = CONVERTERS[t.join('.')]) {
-                    converter = new Type(wModel, doc, parent);
-                    break;
-                }
-            } while (t.length > 1);
-        }
-        if (!converter)
-            converter = new Any(wModel, doc, parent);
-        if (!converter._shouldIgnore())
-            return converter;
-    }
-    factory.with = function (parent) {
-        function paramizedFactory(wModel) {
-            return factory(wModel, parent.doc, parent);
-        }
-        paramizedFactory.with = factory.with;
-        return paramizedFactory;
-    };
-    return factory;
+    return converters;
 }(require('./converter'), require('./document'), require('./section'), require('./p'), require('./list'), require('./span'), require('./a'), require('./bookmark'), require('./text'), require('./h'), require('./table'), require('./tr'), require('./td'), require('./header'), require('./footer'), require('./fieldBegin'), require('./fieldEnd'), require('./drawingAnchor'), require('./shape'), require('./img'), require('./textbox'), require('./style/document'), require('./style/paragraph'), require('./style/inline'), require('./style/numbering'), require('./style/table'), require('./style/list'));
 },{"./a":5,"./bookmark":6,"./converter":7,"./document":8,"./drawingAnchor":10,"./fieldBegin":12,"./fieldEnd":13,"./footer":16,"./h":18,"./header":19,"./img":20,"./list":21,"./p":22,"./section":23,"./shape":24,"./span":25,"./style/document":27,"./style/inline":28,"./style/list":29,"./style/numbering":30,"./style/paragraph":31,"./style/table":33,"./table":34,"./td":35,"./text":36,"./textbox":37,"./tr":38}],12:[function(require,module,exports){
 module.exports = function (Super, require) {
@@ -2033,15 +2007,17 @@ module.exports = function (Super, require) {
         convert: function (wordField, endConverter) {
             if (!wordField)
                 return Super.prototype.convert.apply(this, arguments);
-            var converter = this.constructor.factory(wordField, this.doc, this);
+            var converter = this.constructor.factory(wordField, this);
             converter && converter.convert(endConverter && endConverter.content);
         }
     }, {
-        factory: function (wordField, doc, parent) {
+        factory: function (wordField, parent) {
             var type = wordField.type.split('.').pop();
-            var Model = require.defined('./field/' + type) && require('./field/' + type);
-            if (Model)
-                return new Model(wordField, doc, parent);
+            try {
+                var Model = require('./field/' + type);
+                return new Model(wordField, parent);
+            } catch (e) {
+            }
         }
     });
 }(require('./converter'), require, require('./field/hyperlink'));
@@ -2054,7 +2030,7 @@ module.exports = function (Super) {
 }(require('./converter'));
 },{"./converter":7}],14:[function(require,module,exports){
 module.exports = function (Super) {
-    return Super.extend(function (wordModel, doc, parent) {
+    return Super.extend(function (wordModel, parent) {
         Super.apply(this, arguments);
         this.elStart = parent.content;
     }, {
@@ -2879,10 +2855,10 @@ module.exports = function (Converter, Style) {
 }(require('./converter'), require('./style/table'));
 },{"./converter":7,"./style/table":33}],39:[function(require,module,exports){
 (function (global){
-global.$=require("./parser/tool-nojquery")
+global.$=require("./parser/tool")
 module.exports=require("./parser/openxml/docx/document")
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./parser/openxml/docx/document":82,"./parser/tool-nojquery":151}],40:[function(require,module,exports){
+},{"./parser/openxml/docx/document":82,"./parser/tool":151}],40:[function(require,module,exports){
 (function(define){
 	define([], function(){
 
@@ -12255,6 +12231,8 @@ module.exports = function (JSZip) {
             return this.parts[name];
         },
         parse: function () {
+        },
+        release: function () {
         }
     }, {
         load: function (inputFile) {
@@ -12272,14 +12250,15 @@ module.exports = function (JSZip) {
     });
 }(require('jszip'));
 },{"jszip":49}],81:[function(require,module,exports){
-module.exports = function (BaseDocument, Part) {
-    return BaseDocument.extend(function () {
-        BaseDocument.apply(this, arguments);
+module.exports = function (Super, Part) {
+    return Super.extend(function () {
+        Super.apply(this, arguments);
         var rels = this.rels = {};
         $.each(new Part('', this).rels, function (id, rel) {
             rels[rel.type] = rel.target;
         });
         this.partMain = new Part(this.rels['officeDocument'], this);
+        this.content = [];
     }, {
         vender: 'Microsoft',
         product: 'Office 2010',
@@ -12294,21 +12273,78 @@ module.exports = function (BaseDocument, Part) {
         getImageURL: function (name) {
             return URL.createObjectURL(new Blob([this.parts[name].asArrayBuffer()], { type: 'image/*' }));
         }
+    }, {
+        Visitor: $.newClass(function Any(srcModel, targetParent) {
+            this.srcModel = srcModel;
+            this.parent = parent;
+        }, {
+            visit: function () {
+                console.info(this.srcModel.type);
+            },
+            _shouldIgnore: function () {
+                return false;
+            }
+        }),
+        createVisitorFactory: function (factory) {
+            var Any = this.Visitor;
+            switch (typeof factory) {
+            case 'function':
+                break;
+            case 'object':
+                var map = factory;
+                if (map['*'])
+                    Any = map['*'];
+                factory = function (srcModel, targetParent) {
+                    var Visitor = map[srcModel.type], visitor, t;
+                    if (!srcModel.type);
+                    else if (Visitor)
+                        visitor = new Visitor(srcModel, targetParent);
+                    else if ((t = srcModel.type.split('.')).length > 1) {
+                        do {
+                            t.pop();
+                            if (Visitor = map[t.join('.')]) {
+                                visitor = new Visitor(srcModel, targetParent);
+                                break;
+                            }
+                        } while (t.length > 1);
+                    }
+                    if (!visitor)
+                        visitor = new Any(srcModel, targetParent);
+                    if (!visitor._shouldIgnore())
+                        return visitor;
+                };
+                break;
+            case 'undefined':
+                factory = function (srcModel, targetParent) {
+                    return new Any(srcModel, targetParent);
+                };
+                break;
+            default:
+                throw 'unsupported factory';
+            }
+            factory.with = function (targetParent) {
+                function paramizedFactory(srcModel) {
+                    return factory(srcModel, targetParent);
+                }
+                paramizedFactory.with = factory.with;
+                return paramizedFactory;
+            };
+            return factory;
+        }
     });
 }(require('../document'), require('./part'));
 },{"../document":80,"./part":150}],82:[function(require,module,exports){
-module.exports = function (OfficeDocument, factory, FontTheme, ColorTheme, FormatTheme) {
+module.exports = function (Super, factory, FontTheme, ColorTheme, FormatTheme) {
     function ParseContext(current) {
         this.current = current;
     }
-    return OfficeDocument.extend(function () {
-        OfficeDocument.apply(this, arguments);
+    return Super.extend(function () {
+        Super.apply(this, arguments);
         var rels = this.rels, builtIn = 'settings,webSettings,theme,styles,stylesWithEffects,fontTable,numbering,footnotes,endnotes'.split(',');
         $.each(this.partMain.rels, function (id, rel) {
             builtIn.indexOf(rel.type) != -1 && (rels[rel.type] = rel.target);
         });
         this.style = new this.constructor.Style();
-        this.content = [];
         this.parseContext = {
             section: new ParseContext(),
             part: new ParseContext(this.partMain),
@@ -12330,9 +12366,10 @@ module.exports = function (OfficeDocument, factory, FontTheme, ColorTheme, Forma
         type: 'Word',
         ext: 'docx',
         parse: function (visitFactories) {
-            this.content = factory(this.partMain.root, this);
-            this.content.parse($.isArray(visitFactories) ? visitFactories : $.toArray(arguments));
+            this.content = factory(this.partMain.documentElement, this);
+            var roots = this.content.parse($.isArray(visitFactories) ? visitFactories : $.toArray(arguments));
             this.release();
+            return roots.length == 1 ? roots[0] : roots;
         },
         getRel: function (id) {
             return this.parseContext.part.current.getRel(id);
@@ -12340,19 +12377,20 @@ module.exports = function (OfficeDocument, factory, FontTheme, ColorTheme, Forma
         getColorTheme: function () {
             if (this.colorTheme)
                 return this.colorTheme;
-            return this.colorTheme = new ColorTheme(this.getPart('theme').root.$1('clrScheme'), this.getPart('settings').root.$1('clrSchemeMapping'));
+            return this.colorTheme = new ColorTheme(this.getPart('theme').documentElement.$1('clrScheme'), this.getPart('settings').documentElement.$1('clrSchemeMapping'));
         },
         getFontTheme: function () {
             if (this.fontTheme)
                 return this.fontTheme;
-            return this.fontTheme = new FontTheme(this.getPart('theme').root.$1('fontScheme'), this.getPart('settings').root.$1('themeFontLang'));
+            return this.fontTheme = new FontTheme(this.getPart('theme').documentElement.$1('fontScheme'), this.getPart('settings').documentElement.$1('themeFontLang'));
         },
         getFormatTheme: function () {
             if (this.formatTheme)
                 return this.formatTheme;
-            return this.formatTheme = new FormatTheme(this.getPart('theme').root.$1('fmtScheme'), this);
+            return this.formatTheme = new FormatTheme(this.getPart('theme').documentElement.$1('fmtScheme'), this);
         },
         release: function () {
+            Super.prototype.release.call(this);
             with (this.parseContext) {
                 delete section;
                 delete part;
@@ -12521,21 +12559,22 @@ module.exports = function (Parser, require) {
         if (mParent)
             mParent.content.push(this);
     }, {
-        type: null,
         parse: function (visitFactories) {
             var visitors = [];
-            var paramizedVisitFactories = $.map(visitFactories, function (visitFactory) {
-                    var visitor = visitFactory(this);
-                    if (visitor) {
-                        visitors.push(visitor);
-                        visitor.visit();
-                        return visitFactory.with(visitor);
-                    }
-                }.bind(this));
+            var paramizedVisitFactories = [];
+            $.map(visitFactories, function (visitFactory) {
+                var visitor = visitFactory(this);
+                if (visitor) {
+                    visitors.push(visitor);
+                    visitor.visit();
+                    paramizedVisitFactories.push(visitFactory.with(visitor));
+                }
+            }.bind(this));
             var factory = require('./factory');
             this._iterate(function (wXml) {
                 factory(wXml, this.wDoc, this).parse(paramizedVisitFactories);
             }.bind(this), paramizedVisitFactories, visitors);
+            return visitors;
         },
         _iterate: function (f, paramizedVisitFactories) {
             for (var i = 0, children = this._getValidChildren(), l = children ? children.length : 0; i < l; i++)
@@ -12654,12 +12693,12 @@ module.exports = function (Model) {
         type: 'document',
         _getValidChildren: function () {
             var children = [
-                    this.wDoc.getPart('styles').root,
+                    this.wDoc.getPart('styles').documentElement,
                     this.wXml.$1('body')
                 ];
             var numbering = this.wDoc.getPart('numbering');
             if (numbering)
-                children.splice(1, 0, numbering.root);
+                children.splice(1, 0, numbering.documentElement);
             return children;
         }
     });
@@ -13292,7 +13331,7 @@ module.exports = function (require, Model, Header, Footer, Style) {
         _iterateHeaderFooter: function (visitorFactories, refType) {
             for (var refs = this.wXml.$(refType + 'Reference'), i = 0, len = refs.length; i < len; i++) {
                 var part = this.wDoc.parseContext.part.current = this.wDoc.getRel(refs[i].attr('r:id'));
-                var model = new (require('./' + refType))(part.root, this.wDoc, this, refs[i].attr('w:type'));
+                var model = new (require('./' + refType))(part.documentElement, this.wDoc, this, refs[i].attr('w:type'));
                 model.parse(visitorFactories);
                 this.wDoc.parseContext.part.current = this.wDoc.partMain;
             }
@@ -13705,7 +13744,7 @@ module.exports = function (Style) {
             var value = this.asObject(x, function (v) {
                     return parseFloat(v) / 20;
                 });
-            if (value.gutter && this.wDoc.getPart('settings').root.$1('gutterAtTop'))
+            if (value.gutter && this.wDoc.getPart('settings').documentElement.$1('gutterAtTop'))
                 value.gutterAtRight = 1;
             return value;
         },
@@ -13981,6 +14020,7 @@ module.exports = function () {
         this.wXml = wXml;
         this.wDoc = wDoc;
     }, {
+        type: null,
         parse: function (visitFactories) {
         }
     });
@@ -13990,7 +14030,7 @@ module.exports = function () {
     return $.newClass(function (name, doc) {
         this.name = name;
         this.doc = doc;
-        this.root = doc.parts[name] && $.parseXML(doc.parts[name].asText()).documentElement;
+        this.documentElement = doc.parts[name] && $.parseXML(doc.parts[name].asText()).documentElement;
         this.rels = {};
         var folder = '', relName = '_rels/' + name + '.rels', i = name.lastIndexOf('/');
         if (i !== -1) {
@@ -14217,15 +14257,13 @@ module.exports = function (Deferred) {
     return $;
 }(require('deferred'));
 },{"deferred":40}],"docx2html":[function(require,module,exports){
-(function (global){
-var Docx4JS=require("docx4js")
+var Docx4JS=require("docx4js"),
+	Converters=require("./converter/docx/html/factory"),
+	factory=Docx4JS.createVisitorFactory(Converters);
 module.exports=function(file){
 	return Docx4JS.load(file)
 	.then(function(docx){
-		docx.parse(require("./converter/docx/html/factory"))
+		return docx.parse(factory)
 	})
 };
-
-global.docx2html=module.exports
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"./converter/docx/html/factory":11,"docx4js":39}]},{},[]);

@@ -7,7 +7,7 @@
 			baseUrl: "../",
 			paths: {
 				"jszip": "node_modules/docx4js/test/jszip.min",
-				"tool": "node_modules/docx4js/parser/tool-nojquery",
+				"tool": "node_modules/docx4js/parser/tool-browser",
 				"deferred": "node_modules/docx4js/node_modules/Deferred/index"
 			},
 			deps:['tool']
@@ -15,13 +15,14 @@
 	</script>
 	<script>
 		function test(input){
-			require(['./parser/openxml/docx/document','./converter/docx/html/factory'],function(Docx4JS, html){
+			require(['./parser/openxml/docx/document','./converter/docx/html/factory'],function(Docx4JS, Converters){
 				Docx4JS.load(input.files[0])
 					.then(function(doc){
 						input.value=""
 						var a=document.$1('div');
 						a && a.parentNode.removeChild(a);
-						doc.parse(html)
+						var doc=doc.parse(Docx4JS.createVisitorFactory(Converters))
+						
 					})
 			})
 		}
