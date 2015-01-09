@@ -114,7 +114,7 @@ define(['./converter', './style/converter'],function(Super, Style){
 				this.pathStyle.fillOpacity=1
 			},
 			blipFill: function(x){
-				this.style.background='url('+x+')'
+				this.style.background='url('+this.doc.asImageURL(x)+')'
 				this.style.backgroundSize='100% 100%'
 				this.noFill()
 			},

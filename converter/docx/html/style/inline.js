@@ -1,7 +1,7 @@
 define(['./converter'], function(Style){
 	return Style.extend(function(){
 		Style.apply(this,arguments)
-		this.style=this.wordModel.id ? this.doc.createStyle('.'+this.wordModel.id) : this.doc.createStyle('span')
+		this.style=this.wordModel.id ? this.doc.createStyle('.'+Style.asCssID(this.wordModel.id)) : this.doc.createStyle('span')
 		this.inline=new this.constructor.Properties(this.style)
 	},{
 		wordType:'style.inline',

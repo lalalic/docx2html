@@ -21,10 +21,15 @@ define([],function(){
 			this.convertStyle(this.content)
 		},
 		convertStyle: function(el, a){
-			this.wordModel.getStyleId && (a=this.wordModel.getStyleId()) && el.attr('class', this.doc.stylePath(a));
+			this.wordModel.getStyleId && (a=this.wordModel.getStyleId()) && el.attr('class', this.doc.stylePath(this.constructor.asCssID(a)));
 		},
 		_shouldIgnore: function(){
 			return false
+		},
+		release: function(){}
+	},{
+		asCssID: function(a){
+			return a.replace(/\s+/g,'_')
 		}
 	})
 })

@@ -11,9 +11,12 @@ define(['./converter','./style/table'], function(Converter, Style){
 			el.innerHTML=html.join('')
 			var style=this.wordModel.getDirectStyle()
 			style && style.parse([new this.constructor.Properties(el.style, this)])
+			var tbody=this.doc.createElement('tbody')
+			this.content.appendChild(tbody)
+			this.content=tbody
 		},
 		getTableSelector: function(){
-			return '#'+(this.content.id ? this.content.id : (this.content.id='tbl'+(new Date().getTime())))
+			return '#'+(this.content.id ? this.content.id : (this.content.id='tbl'+(new Date().getTime())))+">tbody"
 		}
 	},{
 		Properties: Style.Properties.extend({

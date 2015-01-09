@@ -1,12 +1,12 @@
-define(['./converter'],function(Converter){
+define(['./converter','jszip'],function(Converter, JSZip){
+	var Proto_Blob=URL.createObjectURL(new Blob()).split('/')[0];
 	return Converter.extend({
 		wordType:'document',
 		tag:'html',
 		convert: function(){
-			this.doc=this.constructor.create(this.constructor.defaults.container)
-			this.content=this.doc
-			with(this.doc.bgStyle){
-				backgroundColor='lightgray'
+			this.content=this.doc=this.constructor.create(this.options)
+			with(this.doc.style){
+				backgroundColor='transparent'
 				minHeight='1000px'
 				width='100%'
 				paddingTop='20px'
@@ -44,50 +44,103 @@ define(['./converter'],function(Converter){
 			
 			style=this.doc.createStyle('a')
 			style.textDecoration='none'
+		},
+		toString: function(opt){
+			var html=['<!doctype html>\r\n<html><head><meta key="generator" value="docx2html"><title>'+(this.props.name||'')+'</title><style>']
+			html.push(this.doc.getStyleText())
+			html.push('</style></head><body>')
+			html.push(this.doc.outerHTML)
+			opt && opt.extendScript && html.push('<script src="'+opt.extendScript+'"></script>')
+			html.push('</body><html>')
+			return html.join('\r\n')
+		},
+		release: function(){
+			this.doc.release()
+		},
+		asZip: function(opt){
+			var zip=new JSZip(),hasImage=false;
+			var f=zip.folder('images')
+			Object.keys(this.doc.images).forEach(function(a){
+				hasImage=true
+				f.file(a.split('/').pop(),this[a])
+			},this.doc.images)
+			zip.file('props.json',JSON.stringify(this.props));
+			zip.file('main.html',hasImage ? this.toString().replace(Proto_Blob,'images') : this.toString())
+			return zip
+		},
+		save:function(opt){
+			var a=document.createElement("a")
+			document.body.appendChild(a)
+			a.href=URL.createObjectURL(this.asZip().generate({type:'blob'}))
+			a.download=(this.props.name||"document")+'.zip'
+			a.click()
+			URL.revokeObjectURL(a.href)
+			document.body.removeChild(a)
 		}
 	},{
-		create: function(container){
-			var root=container||document.createElement('div')
-			root.id="A"+new Date().getTime()
-			document.body.appendChild(root)
+		create: function(opt){
+			var doc=(function browserDoc(){
+				var root=$.extend(document.createElement('div'),{
+					id : "A"+new Date().getTime(),
+					section: null,
+					createElement: document.createElement.bind(document),
+					createTextNode: document.createTextNode.bind(document),
+					createStyleSheet: function(){
+						if(this.stylesheet)
+							return this.stylesheet;
+						var elStyle=this.createElement('style')
+						this.appendChild(elStyle,null);
+						return this.stylesheet=elStyle.sheet
+					},
+					getStyleText: function(){
+						var styles=[]
+						for(var i=0, rules=this.stylesheet.rules, len=rules.length;i<len;i++)
+							styles.push(rules[i].cssText)
+						return styles.join('\r\n')
+					}
+				});
+				(opt && opt.container || document.body).appendChild(root);
+				return root
+			})(opt);
 			
-			root.section=null
-			
-			root.bgStyle=root.style
-			
-			root.createElement=document.createElement.bind(document)
-			root.createTextNode=document.createTextNode.bind(document)
-			
-			var elStyle=document.createElement('style')
-			elStyle.appendChild(document.createTextNode(""));
-			document.$1('head').insertBefore(elStyle,null)
-			root.stylesheet=elStyle.sheet
-			
-			var relStyles={}, styles={}
-			root.createStyle=function(selector){
-				if(styles[selector])
-					return styles[selector]
-				var rules=this.stylesheet.rules,len=rules.length
-				this.stylesheet.addRule('#'+this.id+" "+selector.split(',').join(', #'+this.id+' '),'{}')
-				return  styles[selector]=this.stylesheet.rules.item(len).style
-			}
-			root.stylePath=function(a, parent){
-				if(parent)
-					return relStyles[a]=parent
-				var paths=[a],parent=a
-				while(parent=relStyles[parent])
-					paths.unshift(parent)
-				return paths.join(' ')
-			}
-			root.release=function(){
-				delete relStyles
-				delete styles
-				delete this.section
-			}
-			return root
-		},
-		defaults:{
-			container:false
+			return (function mixin(doc){
+				var stylesheet=doc.createStyleSheet()
+				var relStyles={}, styles={}
+				var blobs=[];
+				return $.extend(doc,{
+					createStyle: function(selector){
+						if(styles[selector])
+							return styles[selector]
+						var rules=stylesheet.rules,len=rules.length
+						stylesheet.addRule(selector.split(',').map(function(a){
+								return a.trim()[0]=='#' ? a : '#'+this.id+' '+a
+							}.bind(this)).join(','),'{}')
+						return  styles[selector]=stylesheet.rules.item(len).style
+					},
+					stylePath:function(a, parent){
+						if(parent)
+							return relStyles[a]=parent
+						var paths=[a],parent=a
+						while(parent=relStyles[parent])
+							paths.unshift(parent)
+						return paths.join(' ')
+					},
+					release:function(){
+						Object.keys(this.images).forEach(function(b){
+							URL.revokeObjectURL(b)
+						})
+						delete this.images
+						delete relStyles
+						delete styles
+						delete this.section
+					},
+					asImageURL: function(arrayBuffer){
+						var url=URL.createObjectURL(new Blob([arrayBuffer],{type:"image/*"}));
+						(this.images || (this.images={}))[url]=arrayBuffer
+						return url
+					}
+				})
+			})(doc);
 		}
 	})
 })

@@ -3,8 +3,9 @@ define(['./graphic'], function(Super){
 		wordType:'image',
 		tag:'img',
 		convertStyle: function(el){
-			el.src=this.wordModel.asLink()||''
 			Super.prototype.convertStyle.apply(this,arguments)
+			var blob=this.wordModel.getImage();
+			blob && (el.src=this.doc.asImageURL(blob));
 		}
 	})
 })

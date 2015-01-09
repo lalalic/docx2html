@@ -6,10 +6,10 @@ define(['./converter','./inline','./numbering'], function(Style, Inline, Numberi
 				return this[category]
 			switch(category){
 			case 'inline':
-				this.inlineStyle=this.doc.createStyle('.'+this.wordModel.id+' span')
+				this.inlineStyle=this.doc.createStyle('.'+Style.asCssID(this.wordModel.id)+' span')
 				return this[category]=new Inline.Properties(this.inlineStyle)
 			case 'paragraph':
-				this.paragraphStyle=this.doc.createStyle('.'+this.wordModel.id)
+				this.paragraphStyle=this.doc.createStyle('.'+Style.asCssID(this.wordModel.id))
 				return this[category]=new this.constructor.Properties(this.paragraphStyle)
 			case 'frame':
 				this._getPropertiesConverter('paragraph')

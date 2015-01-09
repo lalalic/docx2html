@@ -1611,23 +1611,29 @@ module.exports = function () {
             this.convertStyle(this.content);
         },
         convertStyle: function (el, a) {
-            this.wordModel.getStyleId && (a = this.wordModel.getStyleId()) && el.attr('class', this.doc.stylePath(a));
+            this.wordModel.getStyleId && (a = this.wordModel.getStyleId()) && el.attr('class', this.doc.stylePath(this.constructor.asCssID(a)));
         },
         _shouldIgnore: function () {
             return false;
+        },
+        release: function () {
+        }
+    }, {
+        asCssID: function (a) {
+            return a.replace(/\s+/g, '_');
         }
     });
 }();
 },{}],8:[function(require,module,exports){
-module.exports = function (Converter) {
+module.exports = function (Converter, JSZip) {
+    var Proto_Blob = URL.createObjectURL(new Blob()).split('/')[0];
     return Converter.extend({
         wordType: 'document',
         tag: 'html',
         convert: function () {
-            this.doc = this.constructor.create();
-            this.content = this.doc;
-            with (this.doc.bgStyle) {
-                backgroundColor = 'lightgray';
+            this.content = this.doc = this.constructor.create(this.options);
+            with (this.doc.style) {
+                backgroundColor = 'transparent';
                 minHeight = '1000px';
                 width = '100%';
                 paddingTop = '20px';
@@ -1657,46 +1663,106 @@ module.exports = function (Converter) {
             style.position = 'absolute';
             style = this.doc.createStyle('a');
             style.textDecoration = 'none';
+        },
+        toString: function (opt) {
+            var html = ['<!doctype html>\r\n<html><head><meta key="generator" value="docx2html"><title>' + (this.props.name || '') + '</title><style>'];
+            html.push(this.doc.getStyleText());
+            html.push('</style></head><body>');
+            html.push(this.doc.outerHTML);
+            opt && opt.extendScript && html.push('<script src="' + opt.extendScript + '"></script>');
+            html.push('</body><html>');
+            return html.join('\r\n');
+        },
+        release: function () {
+            this.doc.release();
+        },
+        asZip: function (opt) {
+            var zip = new JSZip(), hasImage = false;
+            var f = zip.folder('images');
+            Object.keys(this.doc.images).forEach(function (a) {
+                hasImage = true;
+                f.file(a.split('/').pop(), this[a]);
+            }, this.doc.images);
+            zip.file('props.json', JSON.stringify(this.props));
+            zip.file('main.html', hasImage ? this.toString().replace(Proto_Blob, 'images') : this.toString());
+            return zip;
+        },
+        save: function (opt) {
+            var a = document.createElement('a');
+            document.body.appendChild(a);
+            a.href = URL.createObjectURL(this.asZip().generate({ type: 'blob' }));
+            a.download = (this.props.name || 'document') + '.zip';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            document.body.removeChild(a);
         }
     }, {
-        create: function () {
-            var root = document.createElement('div');
-            root.id = 'A' + new Date().getTime();
-            document.body.appendChild(root);
-            root.section = null;
-            root.bgStyle = root.style;
-            root.createElement = document.createElement.bind(document);
-            root.createTextNode = document.createTextNode.bind(document);
-            var elStyle = document.createElement('style');
-            elStyle.appendChild(document.createTextNode(''));
-            document.$1('head').insertBefore(elStyle, null);
-            root.stylesheet = elStyle.sheet;
-            var relStyles = {}, styles = {};
-            root.createStyle = function (selector) {
-                if (styles[selector])
-                    return styles[selector];
-                var rules = this.stylesheet.rules, len = rules.length;
-                this.stylesheet.addRule('#' + this.id + ' ' + selector.split(',').join(', #' + this.id + ' '), '{}');
-                return styles[selector] = this.stylesheet.rules.item(len).style;
-            };
-            root.stylePath = function (a, parent) {
-                if (parent)
-                    return relStyles[a] = parent;
-                var paths = [a], parent = a;
-                while (parent = relStyles[parent])
-                    paths.unshift(parent);
-                return paths.join(' ');
-            };
-            root.release = function () {
-                delete relStyles;
-                delete styles;
-                delete this.section;
-            };
-            return root;
+        create: function (opt) {
+            var doc = function browserDoc() {
+                    var root = $.extend(document.createElement('div'), {
+                            id: 'A' + new Date().getTime(),
+                            section: null,
+                            createElement: document.createElement.bind(document),
+                            createTextNode: document.createTextNode.bind(document),
+                            createStyleSheet: function () {
+                                if (this.stylesheet)
+                                    return this.stylesheet;
+                                var elStyle = this.createElement('style');
+                                this.appendChild(elStyle, null);
+                                return this.stylesheet = elStyle.sheet;
+                            },
+                            getStyleText: function () {
+                                var styles = [];
+                                for (var i = 0, rules = this.stylesheet.rules, len = rules.length; i < len; i++)
+                                    styles.push(rules[i].cssText);
+                                return styles.join('\r\n');
+                            }
+                        });
+                    (opt && opt.container || document.body).appendChild(root);
+                    return root;
+                }(opt);
+            return function mixin(doc) {
+                var stylesheet = doc.createStyleSheet();
+                var relStyles = {}, styles = {};
+                var blobs = [];
+                return $.extend(doc, {
+                    createStyle: function (selector) {
+                        if (styles[selector])
+                            return styles[selector];
+                        var rules = stylesheet.rules, len = rules.length;
+                        stylesheet.addRule(selector.split(',').map(function (a) {
+                            return a.trim()[0] == '#' ? a : '#' + this.id + ' ' + a;
+                        }.bind(this)).join(','), '{}');
+                        return styles[selector] = stylesheet.rules.item(len).style;
+                    },
+                    stylePath: function (a, parent) {
+                        if (parent)
+                            return relStyles[a] = parent;
+                        var paths = [a], parent = a;
+                        while (parent = relStyles[parent])
+                            paths.unshift(parent);
+                        return paths.join(' ');
+                    },
+                    release: function () {
+                        Object.keys(this.images).forEach(function (b) {
+                            URL.revokeObjectURL(b);
+                        });
+                        delete this.images;
+                        delete relStyles;
+                        delete styles;
+                        delete this.section;
+                    },
+                    asImageURL: function (arrayBuffer) {
+                        var url = URL.createObjectURL(new Blob([arrayBuffer], { type: 'image/*' }));
+                        (this.images || (this.images = {}))[url] = arrayBuffer;
+                        return url;
+                    }
+                });
+            }(doc);
         }
     });
-}(require('./converter'));
-},{"./converter":7}],9:[function(require,module,exports){
+}(require('./converter'), require('jszip'));
+},{"./converter":7,"jszip":160}],9:[function(require,module,exports){
 module.exports = function (Super, Style) {
     return Super.extend({
         convertStyle: function (el) {
@@ -2118,8 +2184,9 @@ module.exports = function (Super) {
         wordType: 'image',
         tag: 'img',
         convertStyle: function (el) {
-            el.src = this.wordModel.asLink() || '';
             Super.prototype.convertStyle.apply(this, arguments);
+            var blob = this.wordModel.getImage();
+            blob && (el.src = this.doc.asImageURL(blob));
         }
     });
 }(require('./graphic'));
@@ -2290,7 +2357,7 @@ module.exports = function (Super, Style) {
                 this.pathStyle.fillOpacity = 1;
             },
             blipFill: function (x) {
-                this.style.background = 'url(' + x + ')';
+                this.style.background = 'url(' + this.doc.asImageURL(x) + ')';
                 this.style.backgroundSize = '100% 100%';
                 this.noFill();
             },
@@ -2352,11 +2419,11 @@ module.exports = function (Super, Style) {
 },{"./converter":7,"./style/inline":28}],26:[function(require,module,exports){
 module.exports = function (Converter) {
     var Lines = 'dotted,dashed,inset,outset,solid'.split();
-    var browsers = ',-webkit-,-moz-'.split(',');
+    var browsers = ',-webkit-,-moz-'.split(','), cssID = Converter.asCssID;
     return Converter.extend(function () {
         Converter.apply(this, arguments);
         var parentStyle = this.wordModel.getParentStyle();
-        parentStyle && this.doc.stylePath(this.wordModel.id, parentStyle.id);
+        parentStyle && this.doc.stylePath(cssID(this.wordModel.id), cssID(parentStyle.id));
     }, {
         convert: function (value, name, category) {
             var converter = this._getPropertiesConverter(category);
@@ -2451,7 +2518,7 @@ module.exports = function (Paragraph, Inline) {
 module.exports = function (Style) {
     return Style.extend(function () {
         Style.apply(this, arguments);
-        this.style = this.wordModel.id ? this.doc.createStyle('.' + this.wordModel.id) : this.doc.createStyle('span');
+        this.style = this.wordModel.id ? this.doc.createStyle('.' + Style.asCssID(this.wordModel.id)) : this.doc.createStyle('span');
         this.inline = new this.constructor.Properties(this.style);
     }, {
         wordType: 'style.inline',
@@ -2507,6 +2574,7 @@ module.exports = function (Style, Inline, Paragraph) {
             lowerRoman: 'lower-roman',
             upperRoman: 'upper-roman'
         };
+    var cssID = Style.asCssID;
     return Style.extend(function () {
         Style.apply(this, arguments);
         this.levelStyles = {};
@@ -2515,7 +2583,7 @@ module.exports = function (Style, Inline, Paragraph) {
         _getPropertiesConverter: function (category) {
             if (!category)
                 return null;
-            var info = category.split(' '), level = parseInt(info[0]), type = info.length == 1 ? 'list' : info[1], style = this.levelStyles[level], levelSelector = '.' + this.wordModel.id + '[level="' + level + '"]';
+            var info = category.split(' '), level = parseInt(info[0]), type = info.length == 1 ? 'list' : info[1], style = this.levelStyles[level], levelSelector = '.' + cssID(this.wordModel.id) + '[level="' + level + '"]';
             if (!style)
                 style = this.levelStyles[level] = {};
             if (style[type])
@@ -2528,7 +2596,7 @@ module.exports = function (Style, Inline, Paragraph) {
                 style.paragraph = new this.constructor.Pr(this.doc.createStyle(levelSelector + '>li>p'), this, levelSelector);
                 break;
             case 'list':
-                style.list = new this.constructor.Properties(this.doc.createStyle(levelSelector + '>li>p>.marker:before'), this, levelSelector, this.wordModel.id + '_' + level, level);
+                style.list = new this.constructor.Properties(this.doc.createStyle(levelSelector + '>li>p>.marker:before'), this, levelSelector, cssID(this.wordModel.id) + '_' + level, level);
                 break;
             }
             return style[type];
@@ -2585,10 +2653,10 @@ module.exports = function (Style, Inline, Numbering) {
                 return this[category];
             switch (category) {
             case 'inline':
-                this.inlineStyle = this.doc.createStyle('.' + this.wordModel.id + ' span');
+                this.inlineStyle = this.doc.createStyle('.' + Style.asCssID(this.wordModel.id) + ' span');
                 return this[category] = new Inline.Properties(this.inlineStyle);
             case 'paragraph':
-                this.paragraphStyle = this.doc.createStyle('.' + this.wordModel.id);
+                this.paragraphStyle = this.doc.createStyle('.' + Style.asCssID(this.wordModel.id));
                 return this[category] = new this.constructor.Properties(this.paragraphStyle);
             case 'frame':
                 this._getPropertiesConverter('paragraph');
@@ -2664,7 +2732,7 @@ module.exports = function (Style, Paragraph, Inline) {
             }
         },
         getTableSelector: function () {
-            return '.' + this.wordModel.id;
+            return '.' + Style.asCssID(this.wordModel.id) + '>tbody';
         },
         getPrioritizedSelector: function () {
             var selector = this.target;
@@ -2772,9 +2840,12 @@ module.exports = function (Converter, Style) {
             el.innerHTML = html.join('');
             var style = this.wordModel.getDirectStyle();
             style && style.parse([new this.constructor.Properties(el.style, this)]);
+            var tbody = this.doc.createElement('tbody');
+            this.content.appendChild(tbody);
+            this.content = tbody;
         },
         getTableSelector: function () {
-            return '#' + (this.content.id ? this.content.id : this.content.id = 'tbl' + new Date().getTime());
+            return '#' + (this.content.id ? this.content.id : this.content.id = 'tbl' + new Date().getTime()) + '>tbody';
         }
     }, { Properties: Style.Properties.extend({}) });
 }(require('./converter'), require('./style/table'));
@@ -2846,7 +2917,7 @@ module.exports = function (Converter, Style) {
                             level = t;
                     }
                 }
-                names.length && this.parent.content.attr('class', names.join(' '));
+                names.length && this.parent.content.classList.add(names.join(' '));
                 for (var i = 0; i < level; i++)
                     this.parent.content.attr('x' + i, 1);
             }
@@ -12222,13 +12293,16 @@ function ZStream() {
 module.exports = ZStream;
 },{}],80:[function(require,module,exports){
 module.exports = function (JSZip) {
-    return $.newClass(function (parts, raw, name) {
+    return $.newClass(function (parts, raw, props) {
         this.parts = parts;
         this.raw = raw;
-        this.name = name;
+        this.props = props;
     }, {
         getPart: function (name) {
             return this.parts[name];
+        },
+        getImagePart: function (name) {
+            return this.parts[name].asArrayBuffer();
         },
         parse: function () {
         },
@@ -12242,7 +12316,11 @@ module.exports = function (JSZip) {
                 raw.filter(function (path, file) {
                     parts[path] = file;
                 });
-                p.resolve(new DocumentSelf(parts, raw, inputFile.name));
+                p.resolve(new DocumentSelf(parts, raw, {
+                    name: inputFile.name,
+                    lastModified: inputFile.lastModified,
+                    size: inputFile.size
+                }));
             };
             reader.readAsArrayBuffer(inputFile);
             return p;
@@ -12269,9 +12347,6 @@ module.exports = function (Super, Part) {
             if (Part.is(part))
                 return part;
             return this.parts[name] = new Part(name, this);
-        },
-        getImageURL: function (name) {
-            return URL.createObjectURL(new Blob([this.parts[name].asArrayBuffer()], { type: 'image/*' }));
         }
     }, {
         Visitor: $.newClass(function Any(srcModel, targetParent) {
@@ -12285,7 +12360,7 @@ module.exports = function (Super, Part) {
                 return false;
             }
         }),
-        createVisitorFactory: function (factory) {
+        createVisitorFactory: function (factory, opt) {
             var Any = this.Visitor;
             switch (typeof factory) {
             case 'function':
@@ -12321,6 +12396,14 @@ module.exports = function (Super, Part) {
                 break;
             default:
                 throw 'unsupported factory';
+            }
+            if (opt) {
+                var _raw = factory;
+                factory = function () {
+                    var converter = _raw.call(null, arguments);
+                    converter && (converter.options = opt);
+                    return converter;
+                };
             }
             factory.with = function (targetParent) {
                 function paramizedFactory(srcModel) {
@@ -12390,13 +12473,13 @@ module.exports = function (Super, factory, FontTheme, ColorTheme, FormatTheme) {
             return this.formatTheme = new FormatTheme(this.getPart('theme').documentElement.$1('fmtScheme'), this);
         },
         release: function () {
-            Super.prototype.release.call(this);
             with (this.parseContext) {
                 delete section;
                 delete part;
                 delete bookmark;
             }
             delete this.parseContext;
+            Super.prototype.release.call(this);
         }
     }, {
         Style: function () {
@@ -12688,9 +12771,16 @@ module.exports = function (Super) {
     return Super.extend({ type: 'diagram' });
 }(require('./graphic'));
 },{"./graphic":117}],102:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({
+module.exports = function (Super) {
+    return Super.extend({
         type: 'document',
+        parse: function () {
+            var visitors = Super.prototype.parse.apply(this, arguments);
+            visitors.forEach(function (a) {
+                a.props = this.wDoc.props;
+            }.bind(this));
+            return visitors;
+        },
         _getValidChildren: function () {
             var children = [
                     this.wDoc.getPart('styles').documentElement,
@@ -13206,9 +13296,9 @@ module.exports = function (Model) {
 module.exports = function (Super) {
     return Super.extend({
         type: 'image',
-        asLink: function () {
+        getImage: function () {
             var blip = this.wXml.$1('blip'), rid = blip.attr('r:embed');
-            return this.src = this.wDoc.getRel(rid);
+            return this.wDoc.getRel(rid);
         }
     });
 }(require('./graphic'));
@@ -14050,7 +14140,7 @@ module.exports = function () {
             var rel = this.rels[id];
             switch (rel.type) {
             case 'image':
-                return this.doc.getImageURL(rel.target);
+                return this.doc.getImagePart(rel.target);
             default:
                 return this.doc.getPart(rel.target);
             }
@@ -14256,13 +14346,91 @@ module.exports = function (Deferred) {
     });
     return $;
 }(require('deferred'));
-},{"deferred":40}],"docx2html":[function(require,module,exports){
+},{"deferred":40}],152:[function(require,module,exports){
+arguments[4][41][0].apply(exports,arguments)
+},{"dup":41}],153:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],154:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"./flate":159,"dup":43}],155:[function(require,module,exports){
+arguments[4][44][0].apply(exports,arguments)
+},{"./utils":172,"dup":44}],156:[function(require,module,exports){
+arguments[4][45][0].apply(exports,arguments)
+},{"./utils":172,"dup":45}],157:[function(require,module,exports){
+arguments[4][46][0].apply(exports,arguments)
+},{"dup":46}],158:[function(require,module,exports){
+arguments[4][47][0].apply(exports,arguments)
+},{"./utils":172,"dup":47}],159:[function(require,module,exports){
+arguments[4][48][0].apply(exports,arguments)
+},{"dup":48,"pako":175}],160:[function(require,module,exports){
+arguments[4][49][0].apply(exports,arguments)
+},{"./base64":152,"./compressions":154,"./defaults":157,"./deprecatedPublicUtils":158,"./load":161,"./object":164,"./support":168,"dup":49}],161:[function(require,module,exports){
+arguments[4][50][0].apply(exports,arguments)
+},{"./base64":152,"./zipEntries":173,"dup":50}],162:[function(require,module,exports){
+arguments[4][51][0].apply(exports,arguments)
+},{"buffer":1,"dup":51}],163:[function(require,module,exports){
+arguments[4][52][0].apply(exports,arguments)
+},{"./uint8ArrayReader":169,"dup":52}],164:[function(require,module,exports){
+arguments[4][53][0].apply(exports,arguments)
+},{"./base64":152,"./compressedObject":153,"./compressions":154,"./crc32":155,"./defaults":157,"./nodeBuffer":162,"./signature":165,"./stringWriter":167,"./support":168,"./uint8ArrayWriter":170,"./utf8":171,"./utils":172,"dup":53}],165:[function(require,module,exports){
+arguments[4][54][0].apply(exports,arguments)
+},{"dup":54}],166:[function(require,module,exports){
+arguments[4][55][0].apply(exports,arguments)
+},{"./dataReader":156,"./utils":172,"dup":55}],167:[function(require,module,exports){
+arguments[4][56][0].apply(exports,arguments)
+},{"./utils":172,"dup":56}],168:[function(require,module,exports){
+arguments[4][57][0].apply(exports,arguments)
+},{"buffer":1,"dup":57}],169:[function(require,module,exports){
+arguments[4][58][0].apply(exports,arguments)
+},{"./dataReader":156,"dup":58}],170:[function(require,module,exports){
+arguments[4][59][0].apply(exports,arguments)
+},{"./utils":172,"dup":59}],171:[function(require,module,exports){
+arguments[4][60][0].apply(exports,arguments)
+},{"./nodeBuffer":162,"./support":168,"./utils":172,"dup":60}],172:[function(require,module,exports){
+arguments[4][61][0].apply(exports,arguments)
+},{"./compressions":154,"./nodeBuffer":162,"./support":168,"dup":61}],173:[function(require,module,exports){
+arguments[4][62][0].apply(exports,arguments)
+},{"./nodeBufferReader":163,"./object":164,"./signature":165,"./stringReader":166,"./support":168,"./uint8ArrayReader":169,"./utils":172,"./zipEntry":174,"dup":62}],174:[function(require,module,exports){
+arguments[4][63][0].apply(exports,arguments)
+},{"./compressedObject":153,"./object":164,"./stringReader":166,"./utils":172,"dup":63}],175:[function(require,module,exports){
+arguments[4][64][0].apply(exports,arguments)
+},{"./lib/deflate":176,"./lib/inflate":177,"./lib/utils/common":178,"./lib/zlib/constants":181,"dup":64}],176:[function(require,module,exports){
+arguments[4][65][0].apply(exports,arguments)
+},{"./utils/common":178,"./utils/strings":179,"./zlib/deflate.js":183,"./zlib/messages":188,"./zlib/zstream":190,"dup":65}],177:[function(require,module,exports){
+arguments[4][66][0].apply(exports,arguments)
+},{"./utils/common":178,"./utils/strings":179,"./zlib/constants":181,"./zlib/gzheader":184,"./zlib/inflate.js":186,"./zlib/messages":188,"./zlib/zstream":190,"dup":66}],178:[function(require,module,exports){
+arguments[4][67][0].apply(exports,arguments)
+},{"dup":67}],179:[function(require,module,exports){
+arguments[4][68][0].apply(exports,arguments)
+},{"./common":178,"dup":68}],180:[function(require,module,exports){
+arguments[4][69][0].apply(exports,arguments)
+},{"dup":69}],181:[function(require,module,exports){
+arguments[4][70][0].apply(exports,arguments)
+},{"dup":70}],182:[function(require,module,exports){
+arguments[4][71][0].apply(exports,arguments)
+},{"dup":71}],183:[function(require,module,exports){
+arguments[4][72][0].apply(exports,arguments)
+},{"../utils/common":178,"./adler32":180,"./crc32":182,"./messages":188,"./trees":189,"dup":72}],184:[function(require,module,exports){
+arguments[4][73][0].apply(exports,arguments)
+},{"dup":73}],185:[function(require,module,exports){
+arguments[4][74][0].apply(exports,arguments)
+},{"dup":74}],186:[function(require,module,exports){
+arguments[4][75][0].apply(exports,arguments)
+},{"../utils/common":178,"./adler32":180,"./crc32":182,"./inffast":185,"./inftrees":187,"dup":75}],187:[function(require,module,exports){
+arguments[4][76][0].apply(exports,arguments)
+},{"../utils/common":178,"dup":76}],188:[function(require,module,exports){
+arguments[4][77][0].apply(exports,arguments)
+},{"dup":77}],189:[function(require,module,exports){
+arguments[4][78][0].apply(exports,arguments)
+},{"../utils/common":178,"dup":78}],190:[function(require,module,exports){
+arguments[4][79][0].apply(exports,arguments)
+},{"dup":79}],"docx2html":[function(require,module,exports){
 var Docx4JS=require("docx4js"),
 	Converters=require("./converter/docx/html/factory"),
 	factory=Docx4JS.createVisitorFactory(Converters);
 module.exports=function(file){
 	return Docx4JS.load(file)
-	.then(function(docx){
+	.pipe(function(docx){
 		return docx.parse(factory)
 	})
 };

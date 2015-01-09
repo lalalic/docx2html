@@ -1,5 +1,6 @@
 define(['./converter','./inline','./paragraph'], function(Style, Inline, Paragraph){
 	var ListStyleType={lowerLetter:'lower-latin',upperLetter:'upper-latin',lowerRoman:'lower-roman',upperRoman:'upper-roman'}
+	var cssID=Style.asCssID
 	return Style.extend(function(){
 		Style.apply(this,arguments)
 		this.levelStyles={}
@@ -12,7 +13,7 @@ define(['./converter','./inline','./paragraph'], function(Style, Inline, Paragra
 				level=parseInt(info[0]),
 				type=info.length==1 ? 'list' : info[1],
 				style=this.levelStyles[level],
-				levelSelector='.'+this.wordModel.id+'[level="'+level+'"]';
+				levelSelector='.'+cssID(this.wordModel.id)+'[level="'+level+'"]';
 			
 			if(!style)
 				style=this.levelStyles[level]={}
@@ -28,7 +29,7 @@ define(['./converter','./inline','./paragraph'], function(Style, Inline, Paragra
 				style.paragraph=new this.constructor.Pr(this.doc.createStyle(levelSelector+'>li>p'), this, levelSelector)
 				break
 			case 'list':
-				style.list=new this.constructor.Properties(this.doc.createStyle(levelSelector+'>li>p>.marker:before'), this, levelSelector, this.wordModel.id+'_'+level, level);
+				style.list=new this.constructor.Properties(this.doc.createStyle(levelSelector+'>li>p>.marker:before'), this, levelSelector, cssID(this.wordModel.id)+'_'+level, level);
 				break
 			}
 			return style[type]

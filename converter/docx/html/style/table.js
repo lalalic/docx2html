@@ -26,7 +26,8 @@ the priority of css rule should be aligned with word
 			}
 		},
 		getTableSelector: function(){
-			return '.'+this.wordModel.id
+			return '.'+Style.asCssID(this.wordModel.id)+'>tbody'
+			
 		},
 		getPrioritizedSelector: function(){
 			var selector=this.target

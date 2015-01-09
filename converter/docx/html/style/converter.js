@@ -1,10 +1,10 @@
 define(['../converter'], function(Converter){
 	var Lines='dotted,dashed,inset,outset,solid'.split()
-	var browsers=',-webkit-,-moz-'.split(',')
+	var browsers=',-webkit-,-moz-'.split(','), cssID=Converter.asCssID;
 	return Converter.extend(function(){
 		Converter.apply(this,arguments)
 		var parentStyle=this.wordModel.getParentStyle();
-		parentStyle && this.doc.stylePath(this.wordModel.id, parentStyle.id)
+		parentStyle && this.doc.stylePath(cssID(this.wordModel.id), cssID(parentStyle.id))
 	},{
 		convert: function(value,name,category){
 			var converter=this._getPropertiesConverter(category);

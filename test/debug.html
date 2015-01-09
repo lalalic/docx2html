@@ -8,7 +8,8 @@
 			paths: {
 				"jszip": "node_modules/docx4js/test/jszip.min",
 				"tool": "node_modules/docx4js/parser/tool-browser",
-				"deferred": "node_modules/docx4js/node_modules/Deferred/index"
+				"deferred": "node_modules/docx4js/node_modules/Deferred/index",
+				"react": "node_modules/react/dist/react"
 			},
 			deps:['tool']
 		});
@@ -21,8 +22,7 @@
 						input.value=""
 						var a=document.$1('div');
 						a && a.parentNode.removeChild(a);
-						var doc=doc.parse(Docx4JS.createVisitorFactory(Converters))
-						
+						doc.parse(Docx4JS.createVisitorFactory(Converters)).save()
 					})
 			})
 		}

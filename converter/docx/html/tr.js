@@ -18,7 +18,7 @@ define(['./converter','./style/table'], function(Converter, Style){
 							level=t
 					}
 				}
-				names.length && this.parent.content.attr('class', names.join(' '))
+				names.length && this.parent.content.classList.add(names.join(' '))
 				for(var i=0;i<level;i++)
 					this.parent.content.attr('x'+i,1)
 			}
