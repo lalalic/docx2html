@@ -68,7 +68,7 @@ define(['./converter','jszip'],function(Converter, JSZip){
 			zip.file('main.html',hasImage ? this.toString().replace(Proto_Blob,'images') : this.toString())
 			return zip
 		},
-		save:function(opt){
+		download:function(opt){
 			var a=document.createElement("a")
 			document.body.appendChild(a)
 			a.href=URL.createObjectURL(this.asZip().generate({type:'blob'}))
@@ -76,7 +76,21 @@ define(['./converter','jszip'],function(Converter, JSZip){
 			a.click()
 			URL.revokeObjectURL(a.href)
 			document.body.removeChild(a)
+		},
+		save : function(opt){
+			var hasImage=false, images={};
+			return $.Deferred.when(Object.keys(this.doc.images).map(function(a){
+				hasImage=true
+				return opt.saveImage(this[a],this.props).then(function(url){return images[a]=url})
+			},this.doc.images))
+			.then(function(){
+				var html=this.toString();
+				html=hasImage&&this.toString(opt).replace(/blob\:null\/([\w\d-]+)/g,function(a,id){return images[id]});
+				return opt.saveHtml(html,this.props)
+			})
+			
 		}
+		
 	},{
 		create: function(opt){
 			var doc=(function browserDoc(){
