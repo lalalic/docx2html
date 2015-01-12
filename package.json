@@ -1,7 +1,7 @@
 {
   "name": "docx2html",
   "description": "a javascript docx converter to html based on docx4js",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "author": {
     "name": "Raymond Li",
     "email": "lalalic@139.com"

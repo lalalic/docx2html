@@ -1,5 +1,6 @@
 define(['./converter','jszip'],function(Converter, JSZip){
-	var Proto_Blob=URL.createObjectURL(new Blob()).split('/')[0];
+	var Proto_Blob=(function(a){a=URL.createObjectURL(new Blob()).split('/');a.pop();return a.join('/')})();
+	var Reg_Proto_Blob=new RegExp(Proto_Blob+"/([\\w\\d-]+)","gi")
 	return Converter.extend({
 		wordType:'document',
 		tag:'html',
@@ -78,17 +79,18 @@ define(['./converter','jszip'],function(Converter, JSZip){
 			document.body.removeChild(a)
 		},
 		save : function(opt){
-			var hasImage=false, images={};
+			var hasImage=false, images={}, me=this;
 			return $.Deferred.when(Object.keys(this.doc.images).map(function(a){
 				hasImage=true
-				return opt.saveImage(this[a],this.props).then(function(url){return images[a]=url})
+				return opt.saveImage(this[a],me.props)
+					.then(function(url){return images[a]=url})
 			},this.doc.images))
 			.then(function(){
-				var html=this.toString();
-				html=hasImage&&this.toString(opt).replace(/blob\:null\/([\w\d-]+)/g,function(a,id){return images[id]});
-				return opt.saveHtml(html,this.props)
+				var html=me.toString();
+				if(hasImage)
+					html=html.replace(Reg_Proto_Blob,function(a,id){return images[a]});
+				return opt.saveHtml(html,me.props)
 			})
-			
 		}
 		
 	},{

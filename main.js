@@ -3,7 +3,7 @@ var Docx4JS=require("docx4js"),
 	factory=Docx4JS.createVisitorFactory(Converters);
 module.exports=function(file){
 	return Docx4JS.load(file)
-	.pipe(function(docx){
+	.then(function(docx){
 		return docx.parse(factory)
 	})
 };
