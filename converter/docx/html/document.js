@@ -23,6 +23,7 @@ define(['./converter','jszip'],function(Converter, JSZip){
 			style=this.doc.createStyle('table')
 			style.width='100%'
 			style.borderCollapse='collapse'
+			style.wordBreak='break-word'
 			
 			style=this.doc.createStyle('section')
 			style.margin='auto'
