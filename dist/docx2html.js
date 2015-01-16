@@ -1720,8 +1720,9 @@ module.exports = function (Converter, JSZip) {
     }, {
         create: function (opt) {
             var doc = function browserDoc() {
+                    var uid = 0;
                     var root = $.extend(document.createElement('div'), {
-                            id: 'A' + new Date().getTime(),
+                            id: 'A',
                             section: null,
                             createElement: document.createElement.bind(document),
                             createTextNode: document.createTextNode.bind(document),
@@ -1737,6 +1738,9 @@ module.exports = function (Converter, JSZip) {
                                 for (var i = 0, rules = this.stylesheet.rules, len = rules.length; i < len; i++)
                                     styles.push(rules[i].cssText);
                                 return styles.join('\r\n');
+                            },
+                            uid: function () {
+                                return 'A' + uid++;
                             }
                         });
                     (opt && opt.container || document.body).appendChild(root);
@@ -2133,7 +2137,7 @@ module.exports = function (Super) {
         convert: function (elEnd) {
             var a = this.doc.createElement('a');
             a.href = this.wordModel.getLink();
-            elEnd.id = 'a' + new Date().getTime();
+            elEnd.id = this.doc.uid();
             var current = this.elStart, parent = current.parentNode;
             while (!parent.$1('#' + elEnd.id)) {
                 current = parent;
@@ -2866,9 +2870,9 @@ module.exports = function (Converter, Style) {
             this.content = tbody;
         },
         getTableSelector: function () {
-            return '#' + (this.content.id ? this.content.id : this.content.id = 'tbl' + new Date().getTime()) + '>tbody';
+            return '#' + (this.content.id ? this.content.id : this.content.id = this.doc.uid()) + '>tbody';
         }
-    }, { Properties: Style.Properties.extend({}) });
+    });
 }(require('./converter'), require('./style/table'));
 },{"./converter":7,"./style/table":33}],35:[function(require,module,exports){
 module.exports = function (Converter, Style) {

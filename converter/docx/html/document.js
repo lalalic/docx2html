@@ -47,6 +47,8 @@ define(['./converter','jszip'],function(Converter, JSZip){
 			style.textDecoration='none'
 		},
 		toString: function(opt){
+			if(opt && typeof opt.template!="undefined" && $.isFunction(opt.template))
+				return opt.template(this.doc.getStyleText(), this.doc.outerHTML, this.props)
 			var html=['<!doctype html>\r\n<html><head><meta key="generator" value="docx2html"><title>'+(this.props.name||'')+'</title><style>']
 			html.push(this.doc.getStyleText())
 			html.push('</style></head><body>')
@@ -80,13 +82,13 @@ define(['./converter','jszip'],function(Converter, JSZip){
 		},
 		save : function(opt){
 			var hasImage=false, images={}, me=this;
-			return $.Deferred.when(Object.keys(this.doc.images).map(function(a){
+			return $.Deferred.when((this.doc.images && Object.keys(this.doc.images)||[]).map(function(a){
 				hasImage=true
 				return opt.saveImage(this[a],me.props)
 					.then(function(url){return images[a]=url})
 			},this.doc.images))
 			.then(function(){
-				var html=me.toString();
+				var html=me.toString(opt);
 				if(hasImage)
 					html=html.replace(Reg_Proto_Blob,function(a,id){return images[a]});
 				return opt.saveHtml(html,me.props)
@@ -96,8 +98,9 @@ define(['./converter','jszip'],function(Converter, JSZip){
 	},{
 		create: function(opt){
 			var doc=(function browserDoc(){
+				var uid=0;
 				var root=$.extend(document.createElement('div'),{
-					id : "A"+new Date().getTime(),
+					id : "A",
 					section: null,
 					createElement: document.createElement.bind(document),
 					createTextNode: document.createTextNode.bind(document),
@@ -113,7 +116,8 @@ define(['./converter','jszip'],function(Converter, JSZip){
 						for(var i=0, rules=this.stylesheet.rules, len=rules.length;i<len;i++)
 							styles.push(rules[i].cssText)
 						return styles.join('\r\n')
-					}
+					},
+					uid: function(){return 'A'+(uid++)}
 				});
 				(opt && opt.container || document.body).appendChild(root);
 				return root

@@ -4,7 +4,7 @@ define(['./field'],function(Super){
 		convert: function(elEnd){
 			var a=this.doc.createElement('a')
 			a.href=this.wordModel.getLink()
-			elEnd.id='a'+(new Date().getTime())
+			elEnd.id=this.doc.uid()
 			
 			var current=this.elStart, parent=current.parentNode
 			while(!parent.$1('#'+elEnd.id)){

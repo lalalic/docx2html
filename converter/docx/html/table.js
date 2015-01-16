@@ -16,11 +16,15 @@ define(['./converter','./style/table'], function(Converter, Style){
 			this.content=tbody
 		},
 		getTableSelector: function(){
-			return '#'+(this.content.id ? this.content.id : (this.content.id='tbl'+(new Date().getTime())))+">tbody"
+			var selector='#'+(this.content.id ? this.content.id : (this.content.id=this.doc.uid())),
+				level=Style.prototype.PrioritiziedStyles.length;
+			for(var i=0;i<level;i++){
+				this.content.attr('x'+i,1)
+				selector+=('[x'+i+']')
+			}
+			return selector+">tbody"
 		}
 	},{
-		Properties: Style.Properties.extend({
-			
-		})
+		Properties: Style.Properties.extend({})
 	})
 })
