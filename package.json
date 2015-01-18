@@ -12,7 +12,7 @@
     "javascript",
 	"html"
   ],
-  "license":"MIT",
+  "license":"GPL",
   "readme":"README.md",
   "repository": {
     "type": "git",
