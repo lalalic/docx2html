@@ -5,6 +5,9 @@ a javascript converter from docx to html
 #install
 	$ npm install docx2html
 
+#license
+GPL
+
 #API
 It will convert into a div in body with following code.
 

@@ -1,7 +1,7 @@
 {
   "name": "docx2html",
   "description": "a javascript docx converter to html based on docx4js",
-  "version": "0.0.7",
+  "version": "0.10.0",
   "author": {
     "name": "Raymond Li",
     "email": "lalalic@139.com"
@@ -10,30 +10,34 @@
     "docx",
     "converter",
     "javascript",
-	"html"
+    "html"
   ],
-  "license":"GPL",
-  "readme":"README.md",
+  "license": "GPL",
+  "readme": "README.md",
   "repository": {
     "type": "git",
     "url": "https://github.com/lalalic/docx2html.git"
   },
   "devDependencies": {
-    "requirejs": "*",
-	"adeamdify": "*"
+    "requirejs": ">=2.1.15",
+    "adeamdify": ">=0.1.1",
+    "jasmine-node": "^2.0.0"
   },
   "dependencies": {
-    "docx4js": "latest",
-	"jszip":"latest"
+    "amd-require": "0.0.5",
+    "docx4js": ">=0.12.0"
   },
-  "main":"main.js",
-  "browserify":{
-	"transform":["adeamdify"]
+  "main": "main.js",
+  "browser": "browser.js",
+  "browserify": {
+    "transform": [
+      "adeamdify"
+    ]
   },
   "scripts": {
-	"pretest": "browserify -t adeamdify -r ./main.js:docx2html -o dist/docx2html.js  | uglifyjs dist/docx2html.js -o dist/docx2html.min.js",
-	"prepublish": "browserify -t adeamdify -r ./main.js:docx2html -o dist/docx2html.js  | uglifyjs dist/docx2html.js -o dist/docx2html.min.js",
-	"test": "echo 0",
-	"debug": "mklink /J parser \"node_modules/docx4js/parser\""
+    "pretest": "browserify -t adeamdify -r ./browser.js:docx2html -o dist/docx2html.js  | uglifyjs dist/docx2html.js -o dist/docx2html.min.js",
+    "prepublish": "browserify -t adeamdify -r ./browser.js:docx2html -o dist/docx2html.js  | uglifyjs dist/docx2html.js -o dist/docx2html.min.js",
+    "test": "echo 0",
+    "debug": "mklink /J parser \"node_modules/docx4js/parser\""
   }
 }
