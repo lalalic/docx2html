@@ -13,7 +13,7 @@ define(['./converter', './style/converter'],function(Super, Style){
 		wordType:'shape',
 		tag:'div',
 		convertStyle: function(el){
-			el.style.position='absolute'
+			el.style.position='relative'
 			var pathStyle={stroke:'black', strokeWidth:2, fillOpacity:0}
 			Super.prototype.convertStyle.apply(this,arguments)
 			var style=this.wordModel.getDirectStyle();
@@ -154,6 +154,9 @@ define(['./converter', './style/converter'],function(Super, Style){
 						this.noFill()
 					break
 				}
+			},
+			spAutoFit: function(){
+				this.style.height='auto'
 			}
 		})
 	})

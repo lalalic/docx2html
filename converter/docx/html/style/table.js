@@ -16,7 +16,7 @@ the priority of css rule should be aligned with word
 			var selector=this.getTableSelector()+'>'+(gRow.test(this.target) ? '.'+this.getPrioritizedSelector()+'>td' : 'tr>.'+this.getPrioritizedSelector())	
 			switch(category){
 			case 'table':
-				return this[category]=new this.constructor.Properties(null, this)
+				return this[category]=new this.constructor.Properties(this.doc.createStyle(this.getTableSelector().replace(/\>\s*tbody$/i,'')), this)
 			case 'inline'://0012
 				return this[category]=new Inline.Properties(this.doc.createStyle(selector+' span'))
 			case 'paragraph'://0012
@@ -67,6 +67,12 @@ the priority of css rule should be aligned with word
 			tblCellMar: function(x){
 				for(var i in x)
 					this.doc.createStyle(this.tableSelector+'>tr>td')['padding'+this.upperFirst(i)]=(x[i]<1 && x[i]>0 ? 1 : x[i])+'pt'//0002
+			},
+			tblInd: function(x){
+				x && (this.style.marginLeft=x+'pt')
+			},
+			tblW: function(x){
+				x && (this.style.width=x)
 			}
 		}),
 		RowProperties: Style.Properties.extend(function(style,parent){

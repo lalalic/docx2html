@@ -27,6 +27,12 @@ define(['./drawing'], function(Super){
 				x.width && (this.style.borderWidth=x.width+'pt', this.style.borderStyle='solid');
 				x.dash && (this.style.borderStyle=this.lineStyle(x.dash));
 				x.cap==='rnd' && (this.style.borderRadius=x.width*2+'pt')
+			},
+			xfrm: function(x){
+				this.style.width=x.width+'pt'
+				this.style.height=x.height+'pt'
+				x.x && (this.style.left=x.x+'pt')
+				x.y && (this.style.top=x.y+'pt')
 			}
 		})
 	})
