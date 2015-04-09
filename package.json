@@ -25,7 +25,8 @@
   },
   "dependencies": {
     "amd-require": "0.0.5",
-    "docx4js": ">=0.12.0"
+    "docx4js": ">=0.12.0",
+    "jsdom-nogyp": "^0.8.3"
   },
   "main": "main.js",
   "browser": "browser.js",

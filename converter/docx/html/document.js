@@ -1,12 +1,11 @@
 define(['./converter','jszip'],function(Converter, JSZip){
-	var Proto_Blob=(function(a){a=URL.createObjectURL(new Blob()).split('/');a.pop();return a.join('/')})();
-	var Reg_Proto_Blob=new RegExp(Proto_Blob+"/([\\w\\d-]+)","gi")
 	return Converter.extend({
 		wordType:'document',
 		tag:'html',
 		convert: function(){
-			this.content=this.doc=this.constructor.create(this.options)
-			with(this.doc.style){
+			this.doc=this.constructor.create(this.options)
+			this.content=this.doc
+			with(this.content.style){
 				backgroundColor='transparent'
 				minHeight='1000px'
 				width='100%'
@@ -49,11 +48,11 @@ define(['./converter','jszip'],function(Converter, JSZip){
 		},
 		toString: function(opt){
 			if(opt && typeof opt.template!="undefined" && $.isFunction(opt.template))
-				return opt.template(this.doc.getStyleText(), this.doc.outerHTML, this.props)
+				return opt.template(this.doc.getStyleText(), this.content.outerHTML, this.props)
 			var html=['<!doctype html>\r\n<html><head><meta key="generator" value="docx2html"><title>'+(this.props.name||'')+'</title><style>']
 			html.push(this.doc.getStyleText())
 			html.push('</style></head><body>')
-			html.push(this.doc.outerHTML)
+			html.push(this.content.outerHTML)
 			opt && opt.extendScript && html.push('<script src="'+opt.extendScript+'"></script>')
 			html.push('</body><html>')
 			return html.join('\r\n')
@@ -69,13 +68,13 @@ define(['./converter','jszip'],function(Converter, JSZip){
 				f.file(a.split('/').pop(),this[a])
 			},this.doc.images)
 			zip.file('props.json',JSON.stringify(this.props));
-			zip.file('main.html',hasImage ? this.toString().replace(Proto_Blob,'images') : this.toString())
+			zip.file('main.html',hasImage ? this.toString(opt).replace(this.doc.Proto_Blob,'images') : this.toString())
 			return zip
 		},
 		download:function(opt){
 			var a=document.createElement("a")
 			document.body.appendChild(a)
-			a.href=URL.createObjectURL(this.asZip().generate({type:'blob'}))
+			a.href=URL.createObjectURL(this.asZip(opt).generate({type:'blob'}))
 			a.download=(this.props.name||"document")+'.zip'
 			a.click()
 			URL.revokeObjectURL(a.href)
@@ -91,13 +90,82 @@ define(['./converter','jszip'],function(Converter, JSZip){
 			.then(function(){
 				var html=me.toString(opt);
 				if(hasImage)
-					html=html.replace(Reg_Proto_Blob,function(a,id){return images[a]});
+					html=html.replace(this.doc.Reg_Proto_Blob,function(a,id){return images[a]});
 				return opt.saveHtml(html,me.props)
 			})
 		}
 		
 	},{
 		create: function(opt){
+			var mdl='jsdom-nogyp'
+			return this._browser(typeof(document)=='undefined' ? require(mdl).jsdom() : document)
+			//return typeof(window)=='undefined' ? this._node(opt,require(mdl).jsdom()) : this._browser(opt,document)
+		},
+		_node: function(opt){
+			var mdl='jsdom-nogyp',
+				jsdom=require(mdl).jsdom,
+				doc=jsdom(),
+				uid=0;
+			$.extend(doc,{
+				id:'A',
+				section:null,
+				uid: function(){return this.id+(uid++)},
+				createStyleSheet: function(){
+					if(this.stylesheet)
+						return this.stylesheet;
+					var elStyle=this.createElement('style')
+					this.body.appendChild(elStyle,null);
+					return this.stylesheet=elStyle.sheet
+				},
+				getStyleText: function(){
+					var styles=[]
+					for(var i=0, rules=this.stylesheet.rules, len=rules.length;i<len;i++)
+						styles.push(rules[i].cssText)
+					return styles.join('\r\n')
+				}
+			});
+			
+			return (function mixin(doc){
+				var Proto_Blob="image://"//(function(a){a=URL.createObjectURL(new Blob()).split('/');a.pop();return a.join('/')})();
+				var stylesheet=doc.createStyleSheet()
+				var relStyles={}, styles={}
+				var blobs=[];
+				return $.extend(doc,{
+					Proto_Blob:Proto_Blob,
+					Reg_Proto_Blob:new RegExp(Proto_Blob+"/([\\w\\d-]+)","gi"),
+					createStyle: function(selector){
+						if(styles[selector])
+							return styles[selector]
+						var rules=stylesheet.rules,len=rules.length
+						stylesheet.addRule(selector.split(',').map(function(a){
+								return a.trim()[0]=='#' ? a : '#'+this.id+' '+a
+							}.bind(this)).join(','),'{}')
+						return  styles[selector]=stylesheet.rules.item(len).style
+					},
+					stylePath:function(a, parent){
+						if(parent)
+							return relStyles[a]=parent
+						var paths=[a],parent=a
+						while(parent=relStyles[parent])
+							paths.unshift(parent)
+						return paths.join(' ')
+					},
+					release:function(){
+						Object.keys(this.images).forEach(function(b){
+							//
+						})
+						delete this.images
+						delete relStyles
+						delete styles
+						delete this.section
+					},
+					asImageURL: function(arrayBuffer){
+						return "image://"
+					}
+				})
+			})(doc);
+		},
+		_browser: function(document,opt){			
 			var doc=(function browserDoc(){
 				var uid=0;
 				var root=$.extend(document.createElement('div'),{
@@ -109,34 +177,57 @@ define(['./converter','jszip'],function(Converter, JSZip){
 						if(this.stylesheet)
 							return this.stylesheet;
 						var elStyle=this.createElement('style')
-						this.appendChild(elStyle,null);
+						this.body.appendChild(elStyle,null);
 						return this.stylesheet=elStyle.sheet
 					},
 					getStyleText: function(){
 						var styles=[]
-						for(var i=0, rules=this.stylesheet.rules, len=rules.length;i<len;i++)
+						for(var i=0, rules=this.stylesheet.cssRules, len=rules.length;i<len;i++)
 							styles.push(rules[i].cssText)
 						return styles.join('\r\n')
 					},
-					uid: function(){return 'A'+(uid++)}
+					uid: function(){return this.id+(uid++)}
 				});
 				(opt && opt.container || document.body).appendChild(root);
+				root.body=root
 				return root
 			})(opt);
 			
 			return (function mixin(doc){
+				var Proto_Blob=(function(a){
+						if(typeof(URL)!='undefined'){
+							a=URL.createObjectURL(new Blob()).split('/');
+							a.pop();
+							return a.join('/')
+						}else{
+							return "image://"
+						}
+					})();
 				var stylesheet=doc.createStyleSheet()
 				var relStyles={}, styles={}
 				var blobs=[];
 				return $.extend(doc,{
+					Proto_Blob:Proto_Blob,
+					Reg_Proto_Blob:new RegExp(Proto_Blob+"/([\\w\\d-]+)","gi"),
 					createStyle: function(selector){
 						if(styles[selector])
 							return styles[selector]
-						var rules=stylesheet.rules,len=rules.length
-						stylesheet.addRule(selector.split(',').map(function(a){
+						var rules=stylesheet.cssRules,len=rules.length
+						stylesheet.insertRule(selector.split(',').map(function(a){
 								return a.trim()[0]=='#' ? a : '#'+this.id+' '+a
-							}.bind(this)).join(','),'{}')
-						return  styles[selector]=stylesheet.rules.item(len).style
+							}.bind(this)).join(',')+'{}',len)
+						
+						/**
+						 *  node: cssom.CSSStyleDeclaration doesn't support style.border=0, so replace with CSSStyle
+						 *  jsdom should fix it
+						 */
+						if(typeof(__dirname)!=='undefined'){
+							var mdl='jsdom-nogyp'
+							var CSSStyleDeclaration=require(mdl+'/lib/jsdom/level2/style').dom.level2.core.CSSStyleDeclaration
+							stylesheet.cssRules[len].style=new CSSStyleDeclaration()
+						}	
+						
+						return  styles[selector]=stylesheet.cssRules[len].style
 					},
 					stylePath:function(a, parent){
 						if(parent)
