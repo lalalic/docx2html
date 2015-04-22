@@ -9,17 +9,17 @@ define(['./p'], function(Super){
 			var makeStructure=function(parent){
 				ul=this.doc.createElement('ul')
 				ul.id=listStyle.id
-				ul.attr('level',level)
-				ul.classList.add(listStyle.getParentStyle().id)
+				ul.setAttribute('level',level)
+				Super.addClass(ul,listStyle.getParentStyle().id)
 				parent.appendChild(ul)
 			}.bind(this)
 			
 			if(!ul || ul.localName!='ul' || ul.id!=numId){
 				makeStructure(elParent)
-			}else if(ul.attr('level')!=level){
-				var possibleParent=ul.$1('[level="'+level+'"]')
+			}else if(ul.getAttribute('level')!=level){
+				var possibleParent=ul.querySelector('[level="'+level+'"]')
 				if(!possibleParent){
-					makeStructure(ul.$1('[level="'+(parseInt(level)-1)+'"]') || ul)
+					makeStructure(ul.querySelector('[level="'+(parseInt(level)-1)+'"]') || ul)
 				}else 
 					ul=possibleParent
 			}
@@ -27,7 +27,7 @@ define(['./p'], function(Super){
 			ul.appendChild(li)
 			li.appendChild(this.content=this.doc.createElement(this.tag))
 			var marker=this.doc.createElement('span')
-			marker.classList.add('marker')
+			Super.addClass(marker, 'marker')
 			this.content.appendChild(marker)//as marker
 			this.convertStyle(this.content)
 		}

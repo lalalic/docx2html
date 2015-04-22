@@ -1,9 +1,9 @@
-define(['./converter','./style/table'], function(Converter, Style){
-	return Converter.extend({
+define(['./converter','./style/table'], function(Super, Style){
+	return Super.extend({
 		wordType:'cell',
 		tag:'td',
 		convertStyle: function(el){
-			Converter.prototype.convertStyle.apply(this,arguments)
+			Super.prototype.convertStyle.apply(this,arguments)
 			var style=this.wordModel.getDirectStyle()
 			style && style.parse([new this.constructor.Properties(el.style,this)])
 		}
@@ -24,9 +24,9 @@ define(['./converter','./style/table'], function(Converter, Style){
 							level=t
 					}
 				}
-				names.length && this.parent.content.attr('class', names.join(' '))
+				names.length && Super.addClass(this.parent.content,names.join(' '));
 				for(var i=0;i<level;i++)
-					this.parent.content.attr('x'+i,1)
+					this.parent.content.setAttribute('x'+i,1)
 			}
 		})
 	})

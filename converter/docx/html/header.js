@@ -6,4 +6,4 @@ define(['./converter'], function(Converter){
 			return this.wordModel.location!='default'
 		}
 	})
-})
+})

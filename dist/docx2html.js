@@ -1652,6 +1652,7 @@ module.exports = function (Converter, JSZip) {
             style = this.doc.createStyle('table');
             style.width = '100%';
             style.borderCollapse = 'collapse';
+            style.wordBreak = 'break-word';
             style = this.doc.createStyle('section');
             style.margin = 'auto';
             style.backgroundColor = 'white';
@@ -1670,6 +1671,8 @@ module.exports = function (Converter, JSZip) {
             style.textDecoration = 'none';
         },
         toString: function (opt) {
+            if (opt && typeof opt.template != 'undefined' && $.isFunction(opt.template))
+                return opt.template(this.doc.getStyleText(), this.doc.outerHTML, this.props);
             var html = ['<!doctype html>\r\n<html><head><meta key="generator" value="docx2html"><title>' + (this.props.name || '') + '</title><style>'];
             html.push(this.doc.getStyleText());
             html.push('</style></head><body>');
@@ -1703,13 +1706,13 @@ module.exports = function (Converter, JSZip) {
         },
         save: function (opt) {
             var hasImage = false, images = {}, me = this;
-            return $.Deferred.when(Object.keys(this.doc.images).map(function (a) {
+            return $.Deferred.when((this.doc.images && Object.keys(this.doc.images) || []).map(function (a) {
                 hasImage = true;
                 return opt.saveImage(this[a], me.props).then(function (url) {
                     return images[a] = url;
                 });
             }, this.doc.images)).then(function () {
-                var html = me.toString();
+                var html = me.toString(opt);
                 if (hasImage)
                     html = html.replace(Reg_Proto_Blob, function (a, id) {
                         return images[a];
@@ -1787,7 +1790,7 @@ module.exports = function (Converter, JSZip) {
         }
     });
 }(require('./converter'), require('jszip'));
-},{"./converter":7,"jszip":122}],9:[function(require,module,exports){
+},{"./converter":7,"jszip":161}],9:[function(require,module,exports){
 module.exports = function (Super, Style) {
     return Super.extend({
         convertStyle: function (el) {
@@ -1797,10 +1800,6 @@ module.exports = function (Super, Style) {
         }
     }, {
         Properties: Style.Properties.extend({
-            extent: function (x) {
-                this.style.width = x.width + 'pt';
-                this.style.height = x.height + 'pt';
-            },
             distL: function (x) {
                 x && (this.style.marginLeft = x + 'pt');
             },
@@ -2185,6 +2184,12 @@ module.exports = function (Super) {
                 x.width && (this.style.borderWidth = x.width + 'pt', this.style.borderStyle = 'solid');
                 x.dash && (this.style.borderStyle = this.lineStyle(x.dash));
                 x.cap === 'rnd' && (this.style.borderRadius = x.width * 2 + 'pt');
+            },
+            xfrm: function (x) {
+                this.style.width = x.width + 'pt';
+                this.style.height = x.height + 'pt';
+                x.x && (this.style.left = x.x + 'pt');
+                x.y && (this.style.top = x.y + 'pt');
             }
         })
     });
@@ -2288,7 +2293,7 @@ module.exports = function (Super, Style) {
         wordType: 'shape',
         tag: 'div',
         convertStyle: function (el) {
-            el.style.position = 'absolute';
+            el.style.position = 'relative';
             var pathStyle = {
                     stroke: 'black',
                     strokeWidth: 2,
@@ -2422,6 +2427,9 @@ module.exports = function (Super, Style) {
                         this.noFill();
                     break;
                 }
+            },
+            spAutoFit: function () {
+                this.style.height = 'auto';
             }
         })
     });
@@ -2747,7 +2755,7 @@ module.exports = function (Style, Paragraph, Inline) {
             var selector = this.getTableSelector() + '>' + (gRow.test(this.target) ? '.' + this.getPrioritizedSelector() + '>td' : 'tr>.' + this.getPrioritizedSelector());
             switch (category) {
             case 'table':
-                return this[category] = new this.constructor.Properties(null, this);
+                return this[category] = new this.constructor.Properties(this.doc.createStyle(this.getTableSelector().replace(/\>\s*tbody$/i, '')), this);
             case 'inline':
                 return this[category] = new Inline.Properties(this.doc.createStyle(selector + ' span'));
             case 'paragraph':
@@ -2795,6 +2803,12 @@ module.exports = function (Style, Paragraph, Inline) {
             tblCellMar: function (x) {
                 for (var i in x)
                     this.doc.createStyle(this.tableSelector + '>tr>td')['padding' + this.upperFirst(i)] = (x[i] < 1 && x[i] > 0 ? 1 : x[i]) + 'pt';
+            },
+            tblInd: function (x) {
+                x && (this.style.marginLeft = x + 'pt');
+            },
+            tblW: function (x) {
+                x && (this.style.width = x);
             }
         }),
         RowProperties: Style.Properties.extend(function (style, parent) {
@@ -2870,9 +2884,14 @@ module.exports = function (Converter, Style) {
             this.content = tbody;
         },
         getTableSelector: function () {
-            return '#' + (this.content.id ? this.content.id : this.content.id = this.doc.uid()) + '>tbody';
+            var selector = '#' + (this.content.id ? this.content.id : this.content.id = this.doc.uid()), level = Style.prototype.PrioritiziedStyles.length;
+            for (var i = 0; i < level; i++) {
+                this.content.attr('x' + i, 1);
+                selector += '[x' + i + ']';
+            }
+            return selector + '>tbody';
         }
-    });
+    }, { Properties: Style.Properties.extend({}) });
 }(require('./converter'), require('./style/table'));
 },{"./converter":7,"./style/table":33}],35:[function(require,module,exports){
 module.exports = function (Converter, Style) {
@@ -2951,10 +2970,10 @@ module.exports = function (Converter, Style) {
 }(require('./converter'), require('./style/table'));
 },{"./converter":7,"./style/table":33}],39:[function(require,module,exports){
 (function (global){
-global.$=require("./parser/tool")
+global.$=window.$=require("./parser/tool-browser")
 module.exports=require("./parser/openxml/docx/document")
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./parser/openxml/docx/document":44,"./parser/tool":113}],40:[function(require,module,exports){
+},{"./parser/openxml/docx/document":83,"./parser/tool-browser":152}],40:[function(require,module,exports){
 (function(define){
 	define(['extend'], function(Extend){
 		var _={
@@ -2966,7 +2985,7 @@ module.exports=require("./parser/openxml/docx/document")
 				for(var i=0, len=a.length; i<len; i++)
 					f(a[i]);
 			},
-			isNullOrUndefined: function(a){return a===null || this.isUndefined(a)}
+			isNullOrUndefined: function(a){return a===null || this.isUndefined()}
 		};
 		/**
 		* A Promise is returned by async methods as a hook to provide callbacks to be
@@ -3371,2011 +3390,6 @@ module.exports = function extend() {
 
 
 },{}],42:[function(require,module,exports){
-module.exports = function (JSZip) {
-    return $.newClass(function (parts, raw, props) {
-        this.parts = parts;
-        this.raw = raw;
-        this.props = props;
-    }, {
-        getPart: function (name) {
-            return this.parts[name];
-        },
-        getImagePart: function (name) {
-            var part = this.parts[name];
-            var crc32 = part._data.crc32;
-            var buffer = part.asArrayBuffer();
-            buffer.crc32 = part._data.crc32 = crc32;
-            return buffer;
-        },
-        parse: function () {
-        },
-        release: function () {
-        }
-    }, {
-        load: function (inputFile) {
-            var reader = new FileReader(), p = new $.Deferred(), DocumentSelf = this;
-            reader.onload = function (e) {
-                var raw = new JSZip(e.target.result), parts = {};
-                raw.filter(function (path, file) {
-                    parts[path] = file;
-                });
-                p.resolve(new DocumentSelf(parts, raw, {
-                    name: inputFile.name,
-                    lastModified: inputFile.lastModified,
-                    size: inputFile.size
-                }));
-            };
-            reader.readAsArrayBuffer(inputFile);
-            return p;
-        }
-    });
-}(require('jszip'));
-},{"jszip":122}],43:[function(require,module,exports){
-module.exports = function (Super, Part) {
-    return Super.extend(function () {
-        Super.apply(this, arguments);
-        var rels = this.rels = {};
-        $.each(new Part('', this).rels, function (id, rel) {
-            rels[rel.type] = rel.target;
-        });
-        this.partMain = new Part(this.rels['officeDocument'], this);
-        this.content = [];
-    }, {
-        vender: 'Microsoft',
-        product: 'Office 2010',
-        getPart: function (name) {
-            var part = this.parts[name] || (name = this.rels[name]) && this.parts[name];
-            if (!part)
-                return null;
-            if (Part.is(part))
-                return part;
-            return this.parts[name] = new Part(name, this);
-        }
-    }, {
-        Visitor: $.newClass(function Any(srcModel, targetParent) {
-            this.srcModel = srcModel;
-            this.parent = parent;
-        }, {
-            visit: function () {
-                console.info(this.srcModel.type);
-            },
-            _shouldIgnore: function () {
-                return false;
-            }
-        }),
-        createVisitorFactory: function (factory, opt) {
-            var Any = this.Visitor;
-            switch (typeof factory) {
-            case 'function':
-                break;
-            case 'object':
-                var map = factory;
-                if (map['*'])
-                    Any = map['*'];
-                factory = function (srcModel, targetParent) {
-                    var Visitor = map[srcModel.type], visitor, t;
-                    if (!srcModel.type);
-                    else if (Visitor)
-                        visitor = new Visitor(srcModel, targetParent);
-                    else if ((t = srcModel.type.split('.')).length > 1) {
-                        do {
-                            t.pop();
-                            if (Visitor = map[t.join('.')]) {
-                                visitor = new Visitor(srcModel, targetParent);
-                                break;
-                            }
-                        } while (t.length > 1);
-                    }
-                    if (!visitor)
-                        visitor = new Any(srcModel, targetParent);
-                    if (!visitor._shouldIgnore())
-                        return visitor;
-                };
-                break;
-            case 'undefined':
-                factory = function (srcModel, targetParent) {
-                    return new Any(srcModel, targetParent);
-                };
-                break;
-            default:
-                throw 'unsupported factory';
-            }
-            if (opt) {
-                var _raw = factory;
-                factory = function () {
-                    var converter = _raw.call(null, arguments);
-                    converter && (converter.options = opt);
-                    return converter;
-                };
-            }
-            factory.with = function (targetParent) {
-                function paramizedFactory(srcModel) {
-                    return factory(srcModel, targetParent);
-                }
-                paramizedFactory.with = factory.with;
-                return paramizedFactory;
-            };
-            return factory;
-        }
-    });
-}(require('../document'), require('./part'));
-},{"../document":42,"./part":112}],44:[function(require,module,exports){
-module.exports = function (Super, factory, FontTheme, ColorTheme, FormatTheme) {
-    function ParseContext(current) {
-        this.current = current;
-    }
-    return Super.extend(function () {
-        Super.apply(this, arguments);
-        var rels = this.rels, builtIn = 'settings,webSettings,theme,styles,stylesWithEffects,fontTable,numbering,footnotes,endnotes'.split(',');
-        $.each(this.partMain.rels, function (id, rel) {
-            builtIn.indexOf(rel.type) != -1 && (rels[rel.type] = rel.target);
-        });
-        this.style = new this.constructor.Style();
-        this.parseContext = {
-            section: new ParseContext(),
-            part: new ParseContext(this.partMain),
-            bookmark: new ParseContext(),
-            field: function (ctx) {
-                ctx.instruct = function (t) {
-                    this[this.length - 1].instruct(t);
-                };
-                ctx.seperate = function (model) {
-                    this[this.length - 1].seperate(model);
-                };
-                ctx.end = function (model) {
-                    this.pop().end(model);
-                };
-                return ctx;
-            }([])
-        };
-    }, {
-        type: 'Word',
-        ext: 'docx',
-        parse: function (visitFactories) {
-            this.content = factory(this.partMain.documentElement, this);
-            var roots = this.content.parse($.isArray(visitFactories) ? visitFactories : $.toArray(arguments));
-            this.release();
-            return roots.length == 1 ? roots[0] : roots;
-        },
-        getRel: function (id) {
-            return this.parseContext.part.current.getRel(id);
-        },
-        getColorTheme: function () {
-            if (this.colorTheme)
-                return this.colorTheme;
-            return this.colorTheme = new ColorTheme(this.getPart('theme').documentElement.$1('clrScheme'), this.getPart('settings').documentElement.$1('clrSchemeMapping'));
-        },
-        getFontTheme: function () {
-            if (this.fontTheme)
-                return this.fontTheme;
-            return this.fontTheme = new FontTheme(this.getPart('theme').documentElement.$1('fontScheme'), this.getPart('settings').documentElement.$1('themeFontLang'));
-        },
-        getFormatTheme: function () {
-            if (this.formatTheme)
-                return this.formatTheme;
-            return this.formatTheme = new FormatTheme(this.getPart('theme').documentElement.$1('fmtScheme'), this);
-        },
-        release: function () {
-            with (this.parseContext) {
-                delete section;
-                delete part;
-                delete bookmark;
-            }
-            delete this.parseContext;
-            Super.prototype.release.call(this);
-        }
-    }, {
-        Style: function () {
-            var ids = {}, defaults = {};
-            $.extend(this, {
-                setDefault: function (style) {
-                    defaults[style.type] = style;
-                },
-                getDefault: function (type) {
-                    return defaults[type];
-                },
-                get: function (id) {
-                    return ids[id];
-                },
-                set: function (style, id) {
-                    ids[id || style.id] = style;
-                }
-            });
-        }
-    });
-}(require('../document'), require('./factory'), require('./theme/font'), require('./theme/color'), require('./theme/format'));
-},{"../document":43,"./factory":45,"./theme/color":108,"./theme/font":109,"./theme/format":110}],45:[function(require,module,exports){
-module.exports = function (require, Model) {
-    return function factory(wXml, doc, parent, more) {
-        var tag = wXml.localName, swap;
-        function attr(node, name) {
-            return node ? node.attr(name) : undefined;
-        }
-        if ('document' == tag)
-            return new (require('./model/document'))(wXml, doc, parent);
-        else if ('styles' == tag)
-            return new (require('./model/documentStyles'))(wXml, doc);
-        else if ('abstractNum' == tag)
-            return new (require('./model/style/numberingDefinition'))(wXml, doc);
-        else if ('num' == tag)
-            return new (require('./model/style/list'))(wXml, doc);
-        else if ('style' == tag) {
-            switch (wXml.attr('w:type')) {
-            case 'paragraph':
-                return new (require('./model/style/paragraph'))(wXml, doc);
-            case 'character':
-                return new (require('./model/style/inline'))(wXml, doc);
-            case 'table':
-                return new (require('./model/style/table'))(wXml, doc);
-            case 'numbering':
-                return new (require('./model/style/numbering'))(wXml, doc);
-            }
-        } else if ('docDefaults' == tag)
-            return new (require('./model/style/document'))(wXml, doc);
-        else if ('body' == tag)
-            return new (require('./model/body'))(wXml, doc, parent);
-        else if ('p' == tag) {
-            var styleId = attr(wXml.$1('>pPr>pStyle'), 'w:val'), style = doc.style.get(styleId);
-            if (wXml.$1('>pPr>numPr') || style && style.getNumId() != -1)
-                return new (require('./model/list'))(wXml, doc, parent);
-            if (style && style.getOutlineLevel() != -1)
-                return new (require('./model/heading'))(wXml, doc, parent);
-            return new (require('./model/paragraph'))(wXml, doc, parent);
-        } else if ('r' == tag) {
-            var style = doc.style.get(attr(wXml.$1('>rPr>rStyle'), 'w:val'));
-            if (style && style.getOutlineLevel() != -1)
-                return new (require('./model/headingInline'))(wXml, doc, parent);
-            else if (wXml.childNodes.length == 1 || wXml.childNodes == 2 && wXml.firstChild.localName == 'rPr') {
-                switch (wXml.lastChild.localName) {
-                case 'fldChar':
-                case 'instrText':
-                    return factory(wXml.lastChild, doc, parent);
-                }
-            }
-            return new (require('./model/inline'))(wXml, doc, parent);
-        } else if ('instrText' == tag)
-            return new (require('./model/fieldInstruct'))(wXml, doc, parent);
-        else if ('t' == tag)
-            return new (require('./model/text'))(wXml, doc, parent);
-        else if ('sym' == tag && wXml.parentNode.localName == 'r')
-            return new (require('./model/symbol'))(wXml, doc, parent);
-        else if ('softHyphen' == tag && wXml.parentNode.localName == 'r')
-            return new (require('./model/softHyphen'))(wXml, doc, parent);
-        else if ('noBreakHyphen' == tag && wXml.parentNode.localName == 'r')
-            return new (require('./model/noBreakHyphen'))(wXml, doc, parent);
-        else if ('tab' == tag && wXml.parentNode.localName == 'r')
-            return new (require('./model/tab'))(wXml, doc, parent);
-        else if ('fldSimple' == tag)
-            return new (require('./model/fieldSimple'))(wXml, doc, parent);
-        else if ('fldChar' == tag) {
-            switch (wXml.attr('w:fldCharType')) {
-            case 'begin':
-                return new (require('./model/fieldBegin'))(wXml, doc, parent);
-                break;
-            case 'end':
-                return new (require('./model/fieldEnd'))(wXml, doc, parent);
-                break;
-            case 'separate':
-                return new (require('./model/fieldSeparate'))(wXml, doc, parent);
-                break;
-            }
-        } else if ('tbl' == tag)
-            return new (require('./model/table'))(wXml, doc, parent);
-        else if ('tr' == tag)
-            return new (require('./model/row'))(wXml, doc, parent);
-        else if ('tc' == tag)
-            return new (require('./model/cell'))(wXml, doc, parent);
-        else if ('br' == tag)
-            return new (require('./model/br'))(wXml, doc, parent);
-        else if ('hyperlink' == tag && 'p' == wXml.parentNode.localName)
-            return new (require('./model/hyperlink'))(wXml, doc, parent);
-        else if ('AlternateContent' == tag)
-            return new (require('./model/drawingAnchor'))(wXml, doc, parent);
-        else if ('wsp' == tag)
-            return new (require('./model/shape'))(wXml, doc, parent);
-        else if ('inline' == tag) {
-            var type = wXml.$1('>graphic>graphicData').attr('uri').split('/').pop();
-            switch (type) {
-            case 'picture':
-                return new (require('./model/image'))(wXml, doc, parent);
-            case 'diagram':
-                return new (require('./model/diagram'))(wXml, doc, parent);
-            case 'chart':
-                return new (require('./model/chart'))(wXml, doc, parent);
-            default:
-                console.error('inline ' + type + ' is not suppored yet.');
-            }
-        } else if ('sdt' == tag) {
-            tag = wXml.firstChild.lastChild.localName;
-            if ('text' == tag)
-                return new (require('./model/control/text'))(wXml, doc, parent);
-            else if ('picture' == tag)
-                return new (require('./model/control/picture'))(wXml, doc, parent);
-            else if ('docPartList' == tag)
-                return new (require('./model/control/gallery'))(wXml, doc, parent);
-            else if ('comboBox' == tag)
-                return new (require('./model/control/combobox'))(wXml, doc, parent);
-            else if ('dropDownList' == tag)
-                return new (require('./model/control/dropdown'))(wXml, doc, parent);
-            else if ('date' == tag)
-                return new (require('./model/control/date'))(wXml, doc, parent);
-            else if ('checkbox' == tag)
-                return new (require('./model/control/checkbox'))(wXml, doc, parent);
-            else
-                return new (require('./model/control/richtext'))(wXml, doc, parent);
-        } else if ('bookmarkStart' == tag)
-            return new (require('./model/bookmarkStart'))(wXml, doc, parent);
-        else if ('bookmarkEnd' == tag)
-            return new (require('./model/bookmarkEnd'))(wXml, doc, parent);
-        else if ('oMathPara' == tag)
-            return new (require('./model/equation'))(wXml, doc, parent);
-        else if ('object' == tag)
-            return new (require('./model/OLE'))(wXml, doc, parent);
-        else if ('sectPr' == tag)
-            return new (require('./model/section'))(wXml, doc, parent);
-        return new Model(wXml, doc, parent);
-    };
-}(require, require('./model'), require('./model/document'), require('./model/section'), require('./model/body'), require('./model/table'), require('./model/row'), require('./model/cell'), require('./model/paragraph'), require('./model/list'), require('./model/heading'), require('./model/inline'), require('./model/headingInline'), require('./model/text'), require('./model/fieldBegin'), require('./model/fieldInstruct'), require('./model/fieldSeparate'), require('./model/fieldEnd'), require('./model/fieldSimple'), require('./model/bookmarkStart'), require('./model/bookmarkEnd'), require('./model/tab'), require('./model/softHyphen'), require('./model/noBreakHyphen'), require('./model/symbol'), require('./model/br'), require('./model/hyperlink'), require('./model/drawingAnchor'), require('./model/shape'), require('./model/image'), require('./model/chart'), require('./model/diagram'), require('./model/documentStyles'), require('./model/style/document'), require('./model/style/paragraph'), require('./model/style/table'), require('./model/style/inline'), require('./model/style/numbering'), require('./model/style/numberingDefinition'), require('./model/style/list'), require('./model/control/richtext'), require('./model/control/text'), require('./model/control/picture'), require('./model/control/gallery'), require('./model/control/combobox'), require('./model/control/dropdown'), require('./model/control/date'), require('./model/control/checkbox'), require('./model/equation'), require('./model/OLE'));
-},{"./model":46,"./model/OLE":47,"./model/body":48,"./model/bookmarkEnd":49,"./model/bookmarkStart":50,"./model/br":51,"./model/cell":52,"./model/chart":53,"./model/control/checkbox":55,"./model/control/combobox":56,"./model/control/date":57,"./model/control/dropdown":58,"./model/control/gallery":59,"./model/control/picture":60,"./model/control/richtext":61,"./model/control/text":62,"./model/diagram":63,"./model/document":64,"./model/documentStyles":65,"./model/drawingAnchor":67,"./model/equation":68,"./model/fieldBegin":69,"./model/fieldEnd":70,"./model/fieldInstruct":71,"./model/fieldSeparate":72,"./model/fieldSimple":73,"./model/heading":81,"./model/headingInline":82,"./model/hyperlink":83,"./model/image":84,"./model/inline":85,"./model/list":86,"./model/noBreakHyphen":87,"./model/paragraph":88,"./model/row":90,"./model/section":92,"./model/shape":93,"./model/softHyphen":94,"./model/style/document":96,"./model/style/inline":97,"./model/style/list":98,"./model/style/numbering":99,"./model/style/numberingDefinition":100,"./model/style/paragraph":101,"./model/style/table":103,"./model/symbol":104,"./model/tab":105,"./model/table":106,"./model/text":107}],46:[function(require,module,exports){
-module.exports = function (Parser, require) {
-    return Parser.extend(function (wXml, wDoc, mParent) {
-        Parser.apply(this, arguments);
-        this.mParent = mParent;
-        this.content = [];
-        if (mParent)
-            mParent.content.push(this);
-    }, {
-        parse: function (visitFactories) {
-            var visitors = [];
-            var paramizedVisitFactories = [];
-            $.map(visitFactories, function (visitFactory) {
-                var visitor = visitFactory(this);
-                if (visitor) {
-                    visitors.push(visitor);
-                    visitor.visit();
-                    paramizedVisitFactories.push(visitFactory.with(visitor));
-                }
-            }.bind(this));
-            var factory = require('./factory');
-            this._iterate(function (wXml) {
-                factory(wXml, this.wDoc, this).parse(paramizedVisitFactories);
-            }.bind(this), paramizedVisitFactories, visitors);
-            return visitors;
-        },
-        _iterate: function (f, paramizedVisitFactories) {
-            for (var i = 0, children = this._getValidChildren(), l = children ? children.length : 0; i < l; i++)
-                !this._shouldIgnore(children[i]) && f(children[i]);
-        },
-        _getValidChildren: function () {
-            return this.wXml.childNodes;
-        },
-        _shouldIgnore: function (wXml) {
-            return false;
-        },
-        _attr: function (selector, key) {
-            var n = arguments.length == 1 ? (key = selector, this.wXml) : this.wXml.$1(selector);
-            return n ? n.attr(key) : null;
-        },
-        _val: function (selector) {
-            return this._attr(selector, 'w:val');
-        }
-    });
-}(require('../parser'), require);
-},{"../parser":111,"./factory":45}],47:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({ type: 'OLE' });
-}(require('../model'));
-},{"../model":46}],48:[function(require,module,exports){
-module.exports = function (Model, Section) {
-    return Model.extend({
-        type: 'body',
-        _getValidChildren: function () {
-            return this.wXml.$('sectPr');
-        }
-    });
-}(require('../model'), require('./section'));
-},{"../model":46,"./section":92}],49:[function(require,module,exports){
-module.exports = function (Range) {
-    return Range.extend({
-        type: 'bookmarkEnd',
-        getName: function () {
-            this.wDoc.parseContext.bookmark[this.wXml.attr('w:id')];
-        }
-    });
-}(require('./rangeBase'));
-},{"./rangeBase":89}],50:[function(require,module,exports){
-module.exports = function (Super) {
-    return Super.extend({
-        type: 'bookmarkStart',
-        parse: function () {
-            Super.prototype.parse.apply(this, arguments);
-            this.wDoc.parseContext.bookmark[this.wXml.attr('w:id')] = this.wXml.attr('w:name');
-        },
-        getName: function () {
-            return this.wXml.attr('w:name');
-        }
-    });
-}(require('../model'));
-},{"../model":46}],51:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({ type: 'br' });
-}(require('../model'));
-},{"../model":46}],52:[function(require,module,exports){
-module.exports = function (Model, Style) {
-    return Model.extend({
-        type: 'cell',
-        getDirectStyle: function (pr) {
-            return (pr = this.wXml.$1('>tcPr')) && new Style.CellProperties(pr, this.wDoc, this);
-        }
-    });
-}(require('../model'), require('./style/table'));
-},{"../model":46,"./style/table":103}],53:[function(require,module,exports){
-module.exports = function (Super) {
-    return Super.extend({ type: 'chart' });
-}(require('./graphic'));
-},{"./graphic":79}],54:[function(require,module,exports){
-module.exports = function (SDT) {
-    return SDT.extend({});
-}(require('./sdt'));
-},{"./sdt":91}],55:[function(require,module,exports){
-module.exports = function (Control) {
-    return Control.extend({ type: 'control.checkbox' });
-}(require('../control'));
-},{"../control":54}],56:[function(require,module,exports){
-module.exports = function (Control) {
-    return Control.extend({ type: 'control.combobox' });
-}(require('../control'));
-},{"../control":54}],57:[function(require,module,exports){
-module.exports = function (Control) {
-    return Control.extend({ type: 'control.date' });
-}(require('../control'));
-},{"../control":54}],58:[function(require,module,exports){
-module.exports = function (Control) {
-    return Control.extend({ type: 'control.dropdown' });
-}(require('../control'));
-},{"../control":54}],59:[function(require,module,exports){
-module.exports = function (Control) {
-    return Control.extend({ type: 'control.gallery' });
-}(require('../control'));
-},{"../control":54}],60:[function(require,module,exports){
-module.exports = function (Control) {
-    return Control.extend({ type: 'control.picture' });
-}(require('../control'));
-},{"../control":54}],61:[function(require,module,exports){
-module.exports = function (Control) {
-    return Control.extend({ type: 'control.richtext' });
-}(require('../control'));
-},{"../control":54}],62:[function(require,module,exports){
-module.exports = function (Control) {
-    return Control.extend({ type: 'control.text' });
-}(require('../control'));
-},{"../control":54}],63:[function(require,module,exports){
-module.exports = function (Super) {
-    return Super.extend({ type: 'diagram' });
-}(require('./graphic'));
-},{"./graphic":79}],64:[function(require,module,exports){
-module.exports = function (Super) {
-    return Super.extend({
-        type: 'document',
-        parse: function () {
-            var visitors = Super.prototype.parse.apply(this, arguments);
-            visitors.forEach(function (a) {
-                a.props = this.wDoc.props;
-            }.bind(this));
-            return visitors;
-        },
-        _getValidChildren: function () {
-            var children = [
-                    this.wDoc.getPart('styles').documentElement,
-                    this.wXml.$1('body')
-                ];
-            var numbering = this.wDoc.getPart('numbering');
-            if (numbering)
-                children.splice(1, 0, numbering.documentElement);
-            return children;
-        }
-    });
-}(require('../model'));
-},{"../model":46}],65:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({
-        type: 'documentStyles',
-        _getValidChildren: function () {
-            return this.wXml.$('docDefaults,style');
-        }
-    });
-}(require('../model'));
-},{"../model":46}],66:[function(require,module,exports){
-module.exports = function (Super, Style) {
-    return Super.extend(function (wXml) {
-        Super.apply(this, arguments);
-        this.wDrawing = null;
-    }, {
-        getDirectStyle: function () {
-            return new this.constructor.Properties(this.wDrawing, this.wDoc, this);
-        },
-        _getValidChildren: function () {
-            return [];
-        }
-    }, {
-        Properties: Style.Properties.extend({
-            _getValidChildren: function (t) {
-                return [
-                    this.wXml.$1('extent'),
-                    this.wXml.$1('effectExtent')
-                ];
-            },
-            extent: function (x) {
-                return {
-                    width: this.asPt(x.attr('cx'), 'cm'),
-                    height: this.asPt(x.attr('cy'), 'cm')
-                };
-            },
-            effectExtent: function (x) {
-                return this.asObject(x, function (x) {
-                    return this.asPt(x, 'cm');
-                }.bind(this));
-            },
-            distT: function (x) {
-                if (x = parseInt(x.value))
-                    return this.asPt(x, 'cm');
-                return this.EMPTY;
-            },
-            distB: function (x) {
-                return this.distT(x);
-            },
-            distR: function (x) {
-                return this.distT(x);
-            },
-            distL: function (x) {
-                return this.distT(x);
-            }
-        }),
-        SpProperties: Style.Properties.extend({
-            naming: {
-                custGeom: 'path',
-                prstGeom: 'path'
-            },
-            xfrm: function (x) {
-                var ext = x.$1('ext'), offset = x.$1('off');
-                return this.world = {
-                    width: this.asPt(ext.attr('cx'), 'cm'),
-                    height: this.asPt(ext.attr('cy'), 'cm'),
-                    x: this.asPt(offset.attr('x'), 'cm'),
-                    y: this.asPt(offset.attr('y'), 'cm')
-                };
-            },
-            solidFill: function (x) {
-                var elColor = x.firstChild, color = this.asColor(elColor.attr('val')), t;
-                switch (elColor.localName) {
-                case 'schemeClr':
-                    color = this.wDoc.getColorTheme().get(color);
-                    break;
-                }
-                if (t = elColor.$1('shade'))
-                    color = this.shadeColor(color, -1 * parseInt(t.attr('val')) / 1000);
-                if (t = elColor.$1('lumOff'))
-                    color = this.shadeColor(color, -1 * parseInt(t.attr('val')) / 1000);
-                return color;
-            },
-            noFill: function (x) {
-                return 1;
-            },
-            gradFill: function (x) {
-                var type = x.$1('lin,path'), o = this.asObject(type), stops = [];
-                for (var gs = x.$('gs'), a, i = 0, len = gs.length; i < len; i++)
-                    stops.push({
-                        position: parseInt(gs[i].attr('pos')) / 1000,
-                        color: this.solidFill(gs[i])
-                    });
-                o.ang && (o.angel = parseInt(o.ang) / 60000, delete o.ang);
-                o.path && (o.rect = this.asObject(type.firstChild, function (x) {
-                    return parseInt(x) / 1000;
-                }));
-                o.path = type.localName == 'lin' ? 'linear' : o.path;
-                o.stops = stops;
-                return o;
-            },
-            ln: function (x) {
-                if (x.$1('noFill'))
-                    return { width: 0 };
-                var o = this.asObject(x), t;
-                (t = x.$1('solidFill')) && (o.color = this.solidFill(t));
-                (t = o.w) && (o.width = this.asPt(t, 'cm')) && delete o.w;
-                (t = x.$1('prstDash')) && (o.dash = t.attr('val'));
-                return o;
-            },
-            effectLst: function (x) {
-            },
-            blipFill: function (x) {
-                return this.wDoc.getRel(x.$1('blip').attr('r:embed'));
-            },
-            prstGeom: function (x) {
-                var px = this.pt2Px, w = px(this.world.width), h = px(this.world.height);
-                switch (x.attr('prst')) {
-                case 'leftBrace':
-                    return {
-                        shape: 'path',
-                        path: 'M ' + w + ' 0 L 0 ' + h / 2 + ' L ' + w + ' ' + h + ' Z'
-                    };
-                default:
-                    return { shape: x.attr('prst') };
-                }
-            },
-            custGeom: function (x) {
-                var path = [], px = function (x) {
-                        return this.pt2Px(this.asPt(x, 'cm'));
-                    }.bind(this);
-                for (var a, children = x.$1('path').children, len = children.length, i = 0; i < len; i++) {
-                    a = children[i];
-                    switch (a.localName) {
-                    case 'moveTo':
-                        path.push('M ' + px(a.firstChild.attr('x')) + ' ' + px(a.firstChild.attr('y')));
-                        break;
-                    case 'lnTo':
-                        path.push('L ' + px(a.firstChild.attr('x')) + ' ' + px(a.firstChild.attr('y')));
-                        break;
-                        break;
-                    case 'cubicBezTo':
-                        path.push('L ' + px(a.childNodes[0].attr('x')) + ' ' + px(a.childNodes[0].attr('y')));
-                        path.push('Q ' + px(a.childNodes[1].attr('x')) + ' ' + px(a.childNodes[1].attr('y')) + ' ' + px(a.childNodes[2].attr('x')) + ' ' + px(a.childNodes[2].attr('y')));
-                        break;
-                    }
-                }
-                return {
-                    shape: 'path',
-                    path: path.join(' ')
-                };
-            }
-        })
-    });
-}(require('../model'), require('./style'));
-},{"../model":46,"./style":95}],67:[function(require,module,exports){
-module.exports = function (Super) {
-    function refine(name) {
-        return name.replace(/-(\w)/, function (a, b) {
-            return b.toUpperCase();
-        });
-    }
-    return Super.extend(function (wXml, wDoc, mParent) {
-        Super.apply(this, arguments);
-        this.wDrawing = wXml.$1('drawing>:first-child');
-    }, {
-        type: 'drawing.anchor',
-        _getValidChildren: function () {
-            return this.wDrawing.$('wsp');
-        }
-    }, {
-        Properties: Super.Properties.extend({
-            type: 'shape',
-            naming: $.extend(Super.Properties.prototype.naming, {
-                wrapNone: 'wrap',
-                wrapSquare: 'wrap',
-                wrapTopAndBottom: 'wrap',
-                wrapTight: 'wrap',
-                wrapThrough: 'wrap'
-            }),
-            _getValidChildren: function () {
-                var t, children = Super.Properties.prototype._getValidChildren.apply(this, arguments);
-                'positionH,positionV,wrapNone,wrapSquare,wrapTopAndBottom,wrapTight,wrapThrough'.split(',').forEach(function (a) {
-                    (t = this.wXml.$1(a)) && children.push(t);
-                }, this);
-                return children;
-            },
-            positionH: function (x) {
-                var o = { relativeFrom: x.attr('relativeFrom') };
-                o[x.firstChild.localName] = x.firstChild.localName == 'posOffset' ? this.asPt(x.firstChild.textContent, 'cm') : x.firstChild.textContent;
-                return o;
-            },
-            positionV: function (x) {
-                var o = { relativeFrom: x.attr('relativeFrom') };
-                o[x.firstChild.localName] = x.firstChild.localName == 'posOffset' ? this.asPt(x.firstChild.textContent, 'cm') : x.firstChild.textContent;
-                return o;
-            },
-            wrapNone: function () {
-                return 'none';
-            },
-            wrapSquare: function () {
-                return 'square';
-            },
-            wrapTopAndBottom: function () {
-                return 'topAndBottom';
-            },
-            wrapTight: function () {
-                return 'tight';
-            },
-            wrapThrough: function () {
-                return 'through';
-            },
-            behindDoc: function (x) {
-                return x.value == '0' ? this.EMPTY : true;
-            }
-        })
-    });
-}(require('./drawing'));
-},{"./drawing":66}],68:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({ type: 'equation' });
-}(require('../model'));
-},{"../model":46}],69:[function(require,module,exports){
-module.exports = function (Super, require) {
-    return Super.extend(function (wXml, wDoc, mParent) {
-        Super.apply(this, arguments);
-        this.commands = [];
-    }, {
-        type: 'fieldBegin',
-        parse: function () {
-            this.wDoc.parseContext.field.push(this);
-            Super.prototype.parse.apply(this, arguments);
-        },
-        instruct: function (t) {
-            this.commands.push(t);
-        },
-        seperate: function (seperator) {
-        },
-        end: function (endVisitors) {
-        },
-        _iterate: function (f, factories, visitors) {
-            this.end = function (endVisitors) {
-                var model = this.constructor.factory(this.commands.join('').trim(), this.wDoc, this);
-                if (model)
-                    model.parse(visitors, endVisitors);
-            };
-        }
-    }, {
-        factory: function (instruct, wDoc, mParent) {
-            var index = instruct.indexOf(' '), type = index != -1 ? instruct.substring(0, index) : instruct;
-            type = type.toLowerCase();
-            try {
-                return new (require('./field/' + type))(instruct.trim(), wDoc, mParent);
-            } catch (e) {
-            }
-        }
-    });
-}(require('../model'), require, require('./field/hyperlink'), require('./field/date'), require('./field/ref'));
-},{"../model":46,"./field/date":74,"./field/hyperlink":76,"./field/ref":77}],70:[function(require,module,exports){
-module.exports = function (Super) {
-    return Super.extend({
-        type: 'fieldEnd',
-        _iterate: function (f, factories, visitors) {
-            this.wDoc.parseContext.field.end(visitors);
-        }
-    });
-}(require('../model'));
-},{"../model":46}],71:[function(require,module,exports){
-module.exports = function (Super) {
-    return Super.extend(function (wXml, wDoc, mParent) {
-        Super.apply(this, arguments);
-        wDoc.parseContext.field.instruct(wXml.textContent);
-    }, {
-        type: 'fieldInstruct',
-        parse: function () {
-        }
-    });
-}(require('../model'));
-},{"../model":46}],72:[function(require,module,exports){
-module.exports = function (Super) {
-    return Super.extend({
-        type: 'fieldEnd',
-        parse: function (factories) {
-            this.wDoc.parseContext.field.seperate(this);
-        }
-    });
-}(require('../model'));
-},{"../model":46}],73:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({ type: 'fieldSimple' });
-}(require('../model'));
-},{"../model":46}],74:[function(require,module,exports){
-module.exports = function (Super) {
-    return Super.extend({ type: 'fied.date' }, {
-        FieldCode: Super.FieldCode.extend({
-            parse: function () {
-                var option = null;
-                while (option = this.nextSwitch()) {
-                    switch (option.type) {
-                    case '@':
-                        var i = option.data.indexOf('"');
-                        if (i != -1)
-                            this.format = option.data.substring(0, i);
-                        else
-                            this.format = option.data;
-                        break;
-                    }
-                }
-            }
-        })
-    });
-}(require('./field'));
-},{"./field":75}],75:[function(require,module,exports){
-module.exports = function (Super) {
-    var Command, FieldCode, Switch;
-    return Super.extend(function (instruct, doc, parent) {
-        Super.apply(this, arguments);
-        this.command = new this.constructor.FieldCode(instruct);
-        this.command.parse();
-    }, {
-        type: 'field',
-        parse: function (visitors, endVisitors) {
-            for (var i = 0, len = visitors.length; i < len; i++)
-                visitors[i].visit(this, endVisitors[i]);
-        },
-        getCommand: function () {
-            return this.command;
-        }
-    }, {
-        Command: Command = $.newClass(function (instruct) {
-            this.data = instruct;
-        }, {
-            nextUntil: function (seperators) {
-                if (this.data.length == 0)
-                    return '';
-                var i = -1, len = this.data.length;
-                while (++i < len && seperators.indexOf(this.data.charAt(i)) == -1);
-                var node = this.data.substring(0, i).trim();
-                if (i < len)
-                    while (++i < len && seperators.indexOf(this.data.charAt(i)) != -1);
-                this.data = this.data.substring(i).trim();
-                return node;
-            },
-            nextNode: function () {
-                return this.nextUntil(' \\');
-            },
-            asInt: function (s, defaultValue) {
-                try {
-                    return parseInt(s);
-                } catch (error) {
-                    return defaultValue || 0;
-                }
-            }
-        }),
-        Switch: Switch = Command.extend(function (cmd) {
-            Command.apply(this, arguments);
-            this.withQuote = false;
-            this.type = cmd.charAt(0).toLowerCase;
-            if (cmd.length > 1 && this.type != '*' && cmd.charAt(1) != ' ') {
-                if (type.match(/\w/)) {
-                    try {
-                        parseInt(cmd.substring(1).trim());
-                        this.data = cmd.substring(1).trim();
-                        return;
-                    } catch (e) {
-                    }
-                }
-                this.type = '!';
-            } else {
-                if (this.data.length > 1)
-                    this.data = this.data.substring(1).trim();
-                else
-                    this.data = '';
-            }
-            this.__removeQuote();
-        }, {
-            __removeQuote: function () {
-                if (this.data.length == 0)
-                    return;
-                var a = this.data.charAt(0);
-                if (a == '"' || a == '\'') {
-                    this.data = this.data.substring(1);
-                    this.withQuote = true;
-                }
-                if (this.data.length == 0)
-                    return;
-                a = this.data.charAt(this.data.length - 1);
-                if (a == '"' || a == '\'') {
-                    this.data = this.data.substring(0, this.data.length - 1);
-                    this.withQuote = true;
-                }
-            },
-            _split2Int: function () {
-                if (this.data == null || this.data.length == 0)
-                    return null;
-                var a = data.split('-');
-                if (a.length == 0)
-                    return null;
-                var b = [];
-                for (var i = 0, len = a.length; i < len; i++) {
-                    try {
-                        b[i] = parseInt(a[i]);
-                    } catch (e) {
-                        b[i] = 0;
-                    }
-                }
-                return b;
-            }
-        }),
-        FieldCode: Command.extend(function (instruct) {
-            Command.apply(this, arguments);
-            this.mergeFormat = this.parseKeyWord('MERGEFORMAT');
-            this.type = this.nextNode();
-        }, {
-            parseKeyWord: function (key) {
-                if (this.data.length == 0)
-                    return false;
-                var len = this.data.length;
-                this.data = this.data.replace(new RegExp('\\*\\s*' + key + '\\s*', 'ig'), '');
-                return this.data.length != len;
-            },
-            nextSwitch: function () {
-                var option = this.nextUntil('\\');
-                if (option == null || option.length == 0)
-                    return null;
-                return new Switch(option);
-            },
-            parse: function () {
-            }
-        })
-    });
-}(require('../../model'));
-},{"../../model":46}],76:[function(require,module,exports){
-module.exports = function (Super) {
-    return Super.extend(function (instruct) {
-        Super.apply(this, arguments);
-        this.link = instruct.split('"')[1];
-    }, {
-        type: 'field.hyperlink',
-        getLink: function () {
-            return this.link;
-        }
-    });
-}(require('./field'));
-},{"./field":75}],77:[function(require,module,exports){
-module.exports = function (Super) {
-    return Super.extend(function (instruct) {
-        Super.apply(this, arguments);
-        this.link = '#' + instruct.split(/\s+/)[1];
-    });
-}(require('./hyperlink'));
-},{"./hyperlink":76}],78:[function(require,module,exports){
-module.exports = function (Header) {
-    return Header.extend({ type: 'footer' });
-}(require('./header'));
-},{"./header":80}],79:[function(require,module,exports){
-module.exports = function (Super) {
-    return Super.extend(function (wXml) {
-        Super.apply(this, arguments);
-        this.wDrawing = wXml;
-    }, {}, {
-        Properties: Super.Properties.extend($.extend({}, Super.SpProperties.prototype, {
-            naming: $.extend({}, Super.Properties.prototype.naming, Super.SpProperties.prototype.naming),
-            _getValidChildren: function (t) {
-                return Super.Properties.prototype._getValidChildren.apply(this, arguments).concat(this.wXml.$1('spPr').childNodes.asArray());
-            }
-        }))
-    });
-}(require('./drawing'));
-},{"./drawing":66}],80:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend(function (wXml, wDoc, mParent, location) {
-        Model.apply(this, arguments);
-        this.location = location;
-    }, { type: 'header' });
-}(require('../model'));
-},{"../model":46}],81:[function(require,module,exports){
-module.exports = function (Paragraph) {
-    return Paragraph.extend({
-        type: 'heading',
-        getOutlineLevel: function () {
-            return this.getNamedStyle().getOutlineLevel();
-        }
-    });
-}(require('./paragraph'));
-},{"./paragraph":88}],82:[function(require,module,exports){
-module.exports = function (Inline) {
-    return Inline.extend({ type: 'headingChar' });
-}(require('./inline'));
-},{"./inline":85}],83:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({
-        type: 'hyperlink',
-        getLink: function (a) {
-            return (a = this._attr('r:id')) ? this._getLocalLink(a) : '#' + this._attr('w:anchor');
-        },
-        _getLocalLink: function (id) {
-        }
-    });
-}(require('../model'));
-},{"../model":46}],84:[function(require,module,exports){
-module.exports = function (Super) {
-    return Super.extend({
-        type: 'image',
-        getImage: function () {
-            var blip = this.wXml.$1('blip'), rid = blip.attr('r:embed');
-            return this.wDoc.getRel(rid);
-        }
-    });
-}(require('./graphic'));
-},{"./graphic":79}],85:[function(require,module,exports){
-module.exports = function (Model, Style) {
-    return Model.extend({
-        type: 'inline',
-        getStyleId: function () {
-            return this._val('>rPr>rStyle');
-        },
-        getNamedStyle: function () {
-            return this.wDoc.style.get(this.getStyleId()) || this.wDoc.style.getDefault(Style.prototype.type);
-        },
-        getDirectStyle: function (pr) {
-            return (pr = this.wXml.$1('>rPr')) && new Style.Properties(pr, this.wDoc, this);
-        },
-        _shouldIgnore: function (wXml) {
-            return wXml.localName == 'rPr';
-        },
-        isWebHidden: function () {
-            return this.wXml.$1('>rPr>webHidden');
-        },
-        isHidden: function () {
-            return this.wXml.$1('>rPr>vanish');
-        }
-    });
-}(require('../model'), require('./style/inline'));
-},{"../model":46,"./style/inline":97}],86:[function(require,module,exports){
-module.exports = function (Super, Style) {
-    return Super.extend({
-        type: 'list',
-        getLevel: function (numPr, t) {
-            return (t = this.wXml.$1('>pPr>numPr>ilvl')) ? t.attr('w:val') : '0';
-        },
-        getNumberingStyle: function (t) {
-            var numId = (t = this.wXml.$1('>pPr>numPr')) && (t = t.$1('numId')) && (t = t.attr('w:val'));
-            !numId && (t = this.getNamedStyle()) && (numId = t.getNumId());
-            return this.wDoc.style.get(Style.asStyleId(numId));
-        }
-    });
-}(require('./paragraph'), require('./style/list'));
-},{"./paragraph":88,"./style/list":98}],87:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({
-        type: 'noBreakHyphen',
-        getText: function () {
-            return String.fromCharCode(8209);
-        }
-    });
-}(require('./text'));
-},{"./text":107}],88:[function(require,module,exports){
-module.exports = function (Model, Style) {
-    return Model.extend(function (wXml, wDoc, mParent) {
-        Model.apply(this, arguments);
-    }, {
-        type: 'paragraph',
-        getStyleId: function (a) {
-            return this._val('>pPr>pStyle');
-        },
-        getNamedStyle: function () {
-            return this.wDoc.style.get(this.getStyleId()) || this.wDoc.style.getDefault(Style.prototype.type);
-        },
-        getDirectStyle: function (pr) {
-            if (pr = this.wXml.$1('>pPr'))
-                return new Style.Properties(pr, this.wDoc, this);
-        },
-        _shouldIgnore: function (wXml) {
-            return wXml.localName == 'pPr';
-        }
-    });
-}(require('../model'), require('./style/paragraph'));
-},{"../model":46,"./style/paragraph":101}],89:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({
-        type: 'range',
-        iterate: function (visitor) {
-        },
-        first: function () {
-        },
-        last: function () {
-        }
-    });
-}(require('../model'));
-},{"../model":46}],90:[function(require,module,exports){
-module.exports = function (Model, Style) {
-    return Model.extend({
-        type: 'row',
-        getDirectStyle: function (pr) {
-            return (pr = this.wXml.$1('>trPr')) && new Style.RowProperties(pr, this.wDoc, this);
-        }
-    });
-}(require('../model'), require('./style/table'));
-},{"../model":46,"./style/table":103}],91:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({ type: 'sdt' });
-}(require('../model'));
-},{"../model":46}],92:[function(require,module,exports){
-module.exports = function (require, Model, Header, Footer, Style) {
-    var empty = [];
-    return Model.extend(function (wXml, wDoc, mParent) {
-        this.wFirst = mParent.content.length ? mParent.content[mParent.content.length - 1].wLast.nextSibling : mParent.wXml.firstChild;
-        this.wLast = wXml;
-        while (this.wLast.parentNode != mParent.wXml)
-            this.wLast = this.wLast.parentNode;
-        if (this.wLast == wXml)
-            this.wLast = wXml.previousSibling;
-        Model.apply(this, arguments);
-        wDoc.parseContext.section.current = this;
-    }, {
-        type: 'section',
-        _iterate: function (f, visitorFactories) {
-            this._iterateHeaderFooter(visitorFactories, 'header');
-            var current = this.wFirst;
-            do {
-                f(current);
-                current = current == this.wLast ? null : current.nextSibling;
-            } while (current);
-            this._iterateHeaderFooter(visitorFactories, 'footer');
-        },
-        _iterateHeaderFooter: function (visitorFactories, refType) {
-            for (var refs = this.wXml.$(refType + 'Reference'), i = 0, len = refs.length; i < len; i++) {
-                var part = this.wDoc.parseContext.part.current = this.wDoc.getRel(refs[i].attr('r:id'));
-                var model = new (require('./' + refType))(part.documentElement, this.wDoc, this, refs[i].attr('w:type'));
-                model.parse(visitorFactories);
-                this.wDoc.parseContext.part.current = this.wDoc.partMain;
-            }
-        },
-        getDirectStyle: function () {
-            return new Style(this.wXml, this.wDoc, this);
-        }
-    });
-}(require, require('../model'), require('./header'), require('./footer'), require('./style/section'));
-},{"../model":46,"./footer":78,"./header":80,"./style/section":102}],93:[function(require,module,exports){
-module.exports = function (Super, Style, Drawing) {
-    return Super.extend({
-        type: 'shape',
-        getDirectStyle: function () {
-            return new this.constructor.Properties(this.wXml, this.wDoc, this);
-        },
-        _getValidChildren: function () {
-            return this.wXml.$('txbxContent');
-        }
-    }, {
-        Properties: Style.Properties.extend($.extend({}, Drawing.SpProperties.prototype, {
-            _getValidChildren: function (t) {
-                return ((t = this.wXml.$('>style>*')) && t.asArray() || []).concat(this.wXml.$('>spPr>*').asArray());
-            },
-            lnRef: function (x, t) {
-                var o = this.wDoc.getFormatTheme().line(x.attr('idx'));
-                if (o.color == 'phClr')
-                    o.color = this.solidFill(x);
-                return o;
-            },
-            fillRef: function (x, t) {
-                var o = this.wDoc.getFormatTheme().fill(x.attr('idx'));
-                switch (typeof o) {
-                case 'string':
-                    if (o == 'phClr')
-                        o = this.solidFill(x);
-                    break;
-                case 'object':
-                    if (o.color == 'phClr')
-                        o.color = this.solidFill(x);
-                    break;
-                }
-                return o;
-            },
-            fontRef: function (x) {
-                return {
-                    color: this.solidFill(x),
-                    family: this.wDoc.getFormatTheme().font(x.attr('idx'))
-                };
-            },
-            effectRef: function () {
-            }
-        }))
-    });
-}(require('../model'), require('./style'), require('./drawing'));
-},{"../model":46,"./drawing":66,"./style":95}],94:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({
-        type: 'softHyphen',
-        getText: function () {
-            return String.fromCharCode(173);
-        }
-    });
-}(require('./text'));
-},{"./text":107}],95:[function(require,module,exports){
-module.exports = function (Model) {
-    var RGB = /([a-fA-F0-9]{2}?){3}?/;
-    return Model.extend(function (wXml, wDoc, mParent) {
-        Model.apply(this, arguments);
-        if (wXml.attr('w:default') == '1')
-            wDoc.style.setDefault(this);
-        this.name = this._val('name');
-        if (this.id = this._attr('w:styleId'))
-            wDoc.style.set(this);
-    }, {
-        getParentStyle: function () {
-            return this.wDoc.style.get(this._val('basedOn'));
-        },
-        isDefault: function () {
-            return this.wXml.attr('w:default') == '1';
-        },
-        getNumId: function () {
-            return -1;
-        },
-        getOutlineLevel: function () {
-            return -1;
-        }
-    }, {
-        Properties: Model.extend({
-            EMPTY: -999,
-            type: null,
-            naming: {},
-            parse: function (visitors) {
-                var values = {};
-                visitors.forEach(function (visitor) {
-                    [
-                        this._getValidChildren(),
-                        this.wXml.attributes
-                    ].forEach(function (children) {
-                        for (var len = children.length, i = 0; i < len; i++) {
-                            var node = children[i], name = node.localName;
-                            if (values[name] == undefined && $.isFunction(this[name]))
-                                values[name] = this[name](node);
-                            values[name] != this.EMPTY && visitor.visit(values[name], this.naming[name] || name, this.type);
-                        }
-                    }, this);
-                }, this);
-            },
-            _getValidChildren: function () {
-                return this.wXml.childNodes;
-            },
-            basedOn: function (x) {
-                return x.attr('w:val');
-            },
-            asColor: function (v) {
-                if (!v || v.length == 0 || v == 'auto')
-                    return '#000000';
-                v = v.split(' ')[0];
-                return v.charAt(0) == '#' ? v : RGB.test(v) ? '#' + v : v;
-            },
-            shadeColor: function (color, percent) {
-                if (!RGB.test(color))
-                    return color;
-                var R = parseInt(color.substring(1, 3), 16);
-                var G = parseInt(color.substring(3, 5), 16);
-                var B = parseInt(color.substring(5, 7), 16);
-                R = parseInt(R * (100 + percent) / 100);
-                G = parseInt(G * (100 + percent) / 100);
-                B = parseInt(B * (100 + percent) / 100);
-                R = R < 255 ? R : 255;
-                G = G < 255 ? G : 255;
-                B = B < 255 ? B : 255;
-                var RR = R.toString(16).length == 1 ? '0' + R.toString(16) : R.toString(16);
-                var GG = G.toString(16).length == 1 ? '0' + G.toString(16) : G.toString(16);
-                var BB = B.toString(16).length == 1 ? '0' + B.toString(16) : B.toString(16);
-                return '#' + RR + GG + BB;
-            },
-            asObject: function (x, f) {
-                var o = {};
-                for (var i = 0, attrs = x.attributes, len = attrs.length; i < len; i++)
-                    o[attrs[i].localName] = f ? f(attrs[i].value) : attrs[i].value;
-                return o;
-            },
-            asPt: function (x, type) {
-                switch (type) {
-                case 'cm':
-                    return parseInt(x) * 28.3464567 / 360000;
-                default:
-                    return parseInt(x) / 20;
-                }
-            },
-            pt2Px: function (x) {
-                if (typeof x == 'string')
-                    x = parseFloat(x.replace('pt', ''));
-                return Math.floor(x * 96 / 72);
-            }
-        })
-    });
-}(require('../model'));
-},{"../model":46}],96:[function(require,module,exports){
-module.exports = function (Style) {
-    return Style.extend(function (wXml, wDoc, mParent) {
-        Style.apply(this, arguments);
-        wDoc.style.setDefault(this);
-    }, {
-        type: 'style.document',
-        isDefault: function () {
-            return true;
-        }
-    });
-}(require('./paragraph'));
-},{"./paragraph":101}],97:[function(require,module,exports){
-module.exports = function (Style) {
-    return Style.extend({
-        type: 'style.inline',
-        _iterate: function (f, factories, visitors) {
-            var pr = this.wXml.$1('>rPr');
-            pr && new this.constructor.Properties(pr, this.wDoc, this).parse(visitors);
-        }
-    }, {
-        Properties: Style.Properties.extend({
-            type: 'inline',
-            rFonts: function (x) {
-                var v = {}, t;
-                if (t = x.attr('w:ascii'))
-                    v.ascii = t;
-                else if (t = x.attr('w:asciiTheme'))
-                    v.ascii = this.wDoc.getFontTheme().get(t);
-                if (t = x.attr('w:eastAsia'))
-                    v.asia = t;
-                else if (t = x.attr('w:eastAsiaTheme'))
-                    v.asia = this.wDoc.getFontTheme().get(t);
-                return v;
-            },
-            b: function (x) {
-                return {};
-            },
-            sz: function (x) {
-                return parseFloat(x.attr('w:val')) / 2;
-            },
-            color: function (x) {
-                return this.asColor(x.attr('w:val') || this.wDoc.getColorTheme().get(x.attr('w:themeColor')));
-            },
-            i: function (x) {
-                return {};
-            },
-            u: function (x) {
-                return this.asObject(x);
-            },
-            bdr: function (x) {
-                var border = this.asObject(x);
-                border.sz && (border.sz = border.sz / 8);
-                border.color && (border.color = this.asColor(border.color));
-                return border;
-            },
-            lang: function (x) {
-                return x.attr('w:val');
-            },
-            vertAlign: function (x) {
-                return x.attr('w:val');
-            },
-            highlight: function (x) {
-                return this.asColor(x.attr('w:val'));
-            }
-        })
-    });
-}(require('../style'));
-},{"../style":95}],98:[function(require,module,exports){
-module.exports = function (Style, Numbering) {
-    function asStyleId(numId) {
-        return '_list' + numId;
-    }
-    return Style.extend(function (wXml, wDoc, mParent) {
-        Style.apply(this, arguments);
-        this.id = this.name = asStyleId(wXml.attr('w:numId'));
-        this.wDoc.style.set(this);
-    }, {
-        type: 'style.list',
-        getParentStyle: function () {
-            var definition = this.wDoc.style.get(Numbering.asStyleId(this.wXml.$1('abstractNumId').attr('w:val')));
-            if (definition.link) {
-                return this.wDoc.style.get(definition.link).asNumberingStyle().getParentStyle();
-            } else
-                return definition;
-        },
-        getNumId: function () {
-            return this.wXml.attr('w:numId');
-        },
-        hasOverride: function () {
-            return this.wXml.childNodes.length != 1;
-        }
-    }, { asStyleId: asStyleId });
-}(require('../style'), require('./numberingDefinition'));
-},{"../style":95,"./numberingDefinition":100}],99:[function(require,module,exports){
-module.exports = function (Super, List) {
-    return Super.extend(function () {
-        Super.apply(this, arguments);
-    }, {
-        type: 'style.numbering',
-        getNumId: function () {
-            return this.wXml.$1('numId').attr('w:val');
-        },
-        asNumberingStyle: function () {
-            return this.wDoc.style.get(List.asStyleId(this.getNumId()));
-        }
-    });
-}(require('../style'), require('./list'));
-},{"../style":95,"./list":98}],100:[function(require,module,exports){
-module.exports = function (Style, Inline, require) {
-    function asStyleId(absNumId) {
-        return '_numberingDefinition' + absNumId;
-    }
-    return Style.extend(function (wXml) {
-        Style.apply(this, arguments);
-        this.levels = [];
-        this.name = this.id = asStyleId(wXml.attr('w:abstractNumId'));
-        this.wDoc.style.set(this);
-        var link = wXml.$1('numStyleLink');
-        if (link)
-            this.link = link.attr('w:val');
-    }, {
-        type: 'style.numbering.definition',
-        _iterate: function (f, factories, visitors) {
-            for (var i = 0, children = this.wXml.$('lvl'), l = children.length, t; i < l; i++) {
-                this.levels.push(t = new this.constructor.Level(children[i], this.wDoc, this));
-                t.parse(visitors);
-            }
-        },
-        getDefinitionId: function () {
-            return this.wXml.attr('w:abstractNumId');
-        }
-    }, {
-        asStyleId: asStyleId,
-        Level: Style.Properties.extend(function (wXml) {
-            Style.Properties.apply(this, arguments);
-            this.type = wXml.attr('w:ilvl');
-        }, {
-            parse: function (visitors) {
-                Style.Properties.prototype.parse.apply(this, arguments);
-                var t, pr;
-                if (t = this.wXml.$1('>pPr')) {
-                    pr = new (require('./paragraph')).Properties(t, this.wDoc, this);
-                    pr.type = this.type + ' ' + pr.type;
-                    pr.parse(visitors);
-                }
-                if (t = this.wXml.$1('>rPr')) {
-                    pr = new Inline.Properties(t, this.wDoc, this);
-                    pr.type = this.type + ' ' + pr.type;
-                    pr.parse(visitors);
-                }
-            },
-            start: function (x) {
-                return parseInt(x.attr('w:val'));
-            },
-            numFmt: function (x) {
-                return x.attr('w:val');
-            },
-            lvlText: function (x) {
-                return x.attr('w:val');
-            },
-            lvlJc: function (x) {
-                return x.attr('w:val');
-            },
-            lvlPicBulletId: function (x) {
-                return x.attr('w:val');
-            }
-        })
-    });
-}(require('../style'), require('./inline'), require);
-},{"../style":95,"./inline":97,"./paragraph":101}],101:[function(require,module,exports){
-module.exports = function (Style, Inline, Numbering) {
-    return Style.extend({
-        type: 'style.paragraph',
-        getOutlineLevel: function (v) {
-            if ((v = this._val('outlineLvl')) != null)
-                return parseInt(v);
-            if ((v = this.getParentStyle()) != null && v.getOutlineLevel)
-                return v.getOutlineLevel();
-            return -1;
-        },
-        getNumId: function () {
-            if ((v = this._val('numId')) != null)
-                return v;
-            if ((v = this.getParentStyle()) != null && v.getNumId)
-                return v.getNumId();
-            return -1;
-        },
-        asNumberingStyle: Numbering.prototype.asNumberingStyle,
-        _iterate: function (f, factories, visitors) {
-            var pr = this.wXml.$1('pPr');
-            pr && new this.constructor.Properties(pr, this.wDoc, this).parse(visitors);
-            (pr = this.wXml.$1('rPr')) && new Inline.Properties(pr, this.wDoc, this).parse(visitors);
-            (pr = this.wXml.$1('numPr')) && new Numbering.Properties(pr, this.wDoc, this).parse(visitors);
-            (pr = this.wXml.$1('framePr')) && new this.constructor.FrameProperties(pr, this.wDoc, this).parse(visitors);
-        }
-    }, {
-        Properties: Style.Properties.extend({
-            type: 'paragraph',
-            jc: function (x) {
-                return x.attr('w:val');
-            },
-            ind: function (x) {
-                return this.asObject(x, this.asPt);
-            },
-            spacing: function (x) {
-                var r = this.asObject(x), o = {};
-                if (!r.beforeAutospacing && r.beforeLines)
-                    o.top = this.asPt(r.beforeLines);
-                else
-                    r.before;
-                o.top = this.asPt(r.before);
-                if (!r.afterAutospacing && r.afterLines)
-                    o.bottom = this.asPt(r.afterLines);
-                else
-                    r.after;
-                o.bottom = this.asPt(r.after);
-                if (!r.line)
-                    return o;
-                switch (x.lineRule) {
-                case 'atLeast':
-                case 'exact':
-                    o.lineHeight = this.asPt(x.line) + 'pt';
-                    break;
-                case 'auto':
-                default:
-                    o.lineHeight = parseInt(r.line) * 100 / 240 + '%';
-                }
-                o.lineRule = x.lineRule;
-                return o;
-            }
-        }),
-        FrameProperties: Style.Properties.extend({ type: 'frame' })
-    });
-}(require('../style'), require('./inline'), require('./numbering'));
-},{"../style":95,"./inline":97,"./numbering":99}],102:[function(require,module,exports){
-module.exports = function (Style) {
-    return Style.Properties.extend({
-        type: 'section',
-        naming: $.extend(Style.Properties.prototype.naming, {
-            pgSz: 'size',
-            pgMar: 'margin'
-        }),
-        pgSz: function (x) {
-            return {
-                width: parseInt(x.attr('w:w')) / 20,
-                height: parseInt(x.attr('w:h') / 20)
-            };
-        },
-        pgMar: function (x) {
-            var value = this.asObject(x, function (v) {
-                    return parseFloat(v) / 20;
-                });
-            if (value.gutter && this.wDoc.getPart('settings').documentElement.$1('gutterAtTop'))
-                value.gutterAtRight = 1;
-            return value;
-        },
-        cols: function (x) {
-            var o = this.asObject(x, parseInt);
-            o.space && (o.space = o.space / 20);
-            return o;
-        }
-    });
-}(require('../style'));
-},{"../style":95}],103:[function(require,module,exports){
-module.exports = function (Style, Paragraph, Inline) {
-    return Style.extend({
-        type: 'style.table',
-        parse: function (factories) {
-            Style.prototype.parse.apply(this, arguments);
-            var TableStyle = this.constructor;
-            for (var styles = this.wXml.$('tblStylePr'), len = styles.length, i = 0; i < len; i++) {
-                var model = new TableStyle(styles[i], this.wDoc, this);
-                model.id = this.id;
-                model.parse(factories);
-            }
-        },
-        _iterate: function (f, factories, visitors) {
-            var pr = null;
-            (pr = this.wXml.$1('>tblPr:not(:empty)')) && new this.constructor.Properties(pr, this.wDoc, this).parse(visitors);
-            (pr = this.wXml.$1('>trPr:not(:empty)')) && new this.constructor.RowProperties(pr, this.wDoc, this).parse(visitors);
-            (pr = this.wXml.$1('>tcPr:not(:empty)')) && new this.constructor.CellProperties(pr, this.wDoc, this).parse(visitors);
-            (pr = this.wXml.$1('>pPr:not(:empty)')) && new Paragraph.Properties(pr, this.wDoc, this).parse(visitors);
-            (pr = this.wXml.$1('>rPr:not(:empty)')) && new Inline.Properties(pr, this.wDoc, this).parse(visitors);
-        },
-        getTarget: function () {
-            return this.wXml.attr('w:type');
-        }
-    }, {
-        Properties: Style.Properties.extend({
-            type: 'table',
-            tblBorders: function (x) {
-                var value = {};
-                for (var borders = x.childNodes, border, i = 0, len = borders.length; i < len; i++) {
-                    border = value[(border = borders[i]).localName] = this.asObject(border);
-                    border.sz && (border.sz = border.sz / 8);
-                    border.color && (border.color = this.asColor(border.color));
-                }
-                return value;
-            },
-            tblCellMar: function (x) {
-                var value = {};
-                for (var borders = x.childNodes, i = 0, len = borders.length, v; i < len; i++)
-                    value[borders[i].localName] = parseInt(borders[i].attr('w:w')) / 20;
-                return value;
-            },
-            tblLook: function (x) {
-                return this.asObject(x, function (x) {
-                    return parseInt(x);
-                });
-            },
-            tblStyleRowBandSize: function (x) {
-                return parseInt(x.attr('w:val'));
-            },
-            tblStyleColBandSize: function (x) {
-                return parseInt(x.attr('w:val'));
-            }
-        }),
-        RowProperties: Style.Properties.extend({
-            type: 'row',
-            cnfStyle: function (x) {
-                return x.attr('w:val');
-            }
-        }),
-        CellProperties: Style.Properties.extend({
-            type: 'cell',
-            tcBorders: function (x) {
-                var value = {};
-                for (var borders = x.childNodes, border, i = 0, len = borders.length; i < len; i++) {
-                    border = value[(border = borders[i]).localName] = this.asObject(border);
-                    border.sz && (border.sz = border.sz / 8);
-                    border.color && (border.color = this.asColor(border.color));
-                }
-                return value;
-            },
-            shd: function (x) {
-                return this.asColor(x.attr('w:fill'));
-            },
-            cnfStyle: function (x) {
-                return x.attr('w:val');
-            },
-            gridSpan: function (x) {
-                return x.attr('w:val');
-            }
-        })
-    });
-}(require('../style'), require('./paragraph'), require('./inline'));
-},{"../style":95,"./inline":97,"./paragraph":101}],104:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({
-        type: 'symbol',
-        getText: function () {
-            return String.fromCharCode(ParseInt('0x' + this._attr('w:char')));
-        },
-        getFont: function () {
-            return this._attr('w:font');
-        }
-    });
-}(require('./text'));
-},{"./text":107}],105:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({
-        type: 'tab',
-        getText: function () {
-            return String.fromCharCode(9);
-        }
-    });
-}(require('./text'));
-},{"./text":107}],106:[function(require,module,exports){
-module.exports = function (Model, Style) {
-    return Model.extend({
-        type: 'table',
-        getStyleId: function (a) {
-            return this._val('>tblPr>tblStyle');
-        },
-        getNamedStyle: function () {
-            return this.wDoc.style.get(this.getStyleId()) || this.wDoc.style.getDefault(Style.prototype.type);
-        },
-        getDirectStyle: function (pr) {
-            return (pr = this.wXml.$1('>tblPr')) && new Style.Properties(pr, this.wDoc, this);
-        },
-        getColWidth: function () {
-            var widths = [], sum = 0;
-            for (var cols = this.wXml.$('>tblGrid>gridCol'), len = cols.length, i = 0, a; i < len; i++) {
-                widths.push(a = parseInt(cols[i].attr('w:w')));
-                sum += a;
-            }
-            return {
-                sum: sum,
-                cols: widths
-            };
-        },
-        _shouldIgnore: function (wXml) {
-            return wXml.localName == 'tblPr' || wXml.localName == 'tblGrid';
-        }
-    });
-}(require('../model'), require('./style/table'));
-},{"../model":46,"./style/table":103}],107:[function(require,module,exports){
-module.exports = function (Model) {
-    return Model.extend({
-        type: 'text',
-        getText: function () {
-            return this.wXml.textContent;
-        }
-    });
-}(require('../model'));
-},{"../model":46}],108:[function(require,module,exports){
-module.exports = function () {
-    var RGB = /([a-fA-F0-9]{2}?){3}?/;
-    return $.newClass(function (wXml, xMapping) {
-        this.wXml = wXml;
-        this.map = {};
-        for (var i = 0, map = xMapping.attributes, len = map.length, attr; i < len; i++)
-            this.map[(attr = xMapping.attributes[i]).localName] = attr.value;
-    }, {
-        get: function (name, t) {
-            if (name == 'phClr')
-                return name;
-            name = this.map[name] || name;
-            if (t = this.wXml.$1(name)) {
-                switch (t.firstChild.localName) {
-                case 'sysClr':
-                    return '#' + t.firstChild.attr('lastClr');
-                default:
-                    return '#' + t.firstChild.attr('val');
-                }
-            } else
-                return 'black';
-        }
-    });
-}();
-},{}],109:[function(require,module,exports){
-module.exports = function () {
-    return $.newClass(function (wXml, xLang) {
-        this.wXml = wXml;
-        this.xLang = xLang;
-    }, {
-        get: function (name) {
-            switch (name) {
-            case 'minorHAnsi':
-            case 'minorAscii':
-                return this.minorHAnsi || (this.minorHAnsi = this.minorAscii = this.wXml.$1('minorFont>latin').attr('typeface'));
-            case 'majorHAnsi':
-            case 'majorAscii':
-                return this.majorHAnsi || (this.majorHAnsi = this.majorAscii = this.wXml.$1('majorFont>latin').attr('typeface'));
-            case 'majorEastAsia':
-                if (this.majorEastAsia)
-                    return this.majorEastAsia;
-                var t = this.wXml.$1('majorFont>ea').attr('typeface');
-                if (t.length == 0)
-                    t = this.wXml.$1('majorFont>font[script=' + this.xLang.attr('w:eastAsia') + ']');
-                return this.majorEastAsia = t;
-            case 'majorEastAsia':
-                if (this.majorEastAsia)
-                    return this.majorEastAsia;
-                var t = this.wXml.$1('minorFont>ea').attr('typeface');
-                if (t.length == 0)
-                    t = this.wXml.$1('minorFont>font[script=' + this.xLang.attr('w:eastAsia') + ']');
-                return this.majorEastAsia = t;
-            case 'majorBidi':
-                if (this.majorBidi)
-                    return this.majorBidi;
-                var t = this.wXml.$1('majorFont>cs').attr('typeface');
-                if (t.length == 0)
-                    t = this.wXml.$1('majorFont>font[script=' + this.xLang.attr('w:bidi') + ']');
-                return this.majorBidi = t;
-            case 'majorBidi':
-                if (this.majorBidi)
-                    return this.majorBidi;
-                var t = this.wXml.$1('minorFont>cs').attr('typeface');
-                if (t.length == 0)
-                    t = this.wXml.$1('minorFont>font[script=' + this.xLang.attr('w:bidi') + ']');
-                return this.majorBidi = t;
-            }
-        }
-    });
-}();
-},{}],110:[function(require,module,exports){
-module.exports = function (Shape) {
-    var asObject = Shape.Properties.prototype.asObject;
-    return $.newClass(function (wXml, wDoc) {
-        this.wXml = wXml;
-        this.wDoc = wDoc;
-        this._converter = new Shape.Properties(null, wDoc, null);
-        this._line = {};
-        this._fill = {
-            0: {},
-            1000: {}
-        };
-        this._bgFill = {};
-        this._effect = {};
-        this._font = {};
-    }, {
-        line: function (idx, t) {
-            if (t = this._line[idx])
-                return t;
-            return (t = this.wXml.$1('ln:nth-child(' + idx + ')')) && (this._line[idx] = this._converter.ln(t));
-        },
-        fill: function (idx, t) {
-            idx = parseInt(idx);
-            if (idx > 1000)
-                return this.bgFill(idx - 1000);
-            if (t = this._fill[idx])
-                return t;
-            return (t = this.wXml.$1('bgFillStyleLst>:nth-child(' + idx + ')')) && (this._fill[idx] = this._converter[t.localName](t));
-        },
-        bgFill: function (idx) {
-            if (t = this._bgFill[idx])
-                return t;
-            return (t = this.wXml.$1('bgFillStyleLst>:nth-child(' + idx + ')')) && (this._bgFill[idx] = this._converter[t.localName](t));
-        },
-        effect: function (idx) {
-            if (t = this._effect[idx])
-                return t;
-            return (t = this.wXml.$1('effectStyle:nth-child(' + idx + ')>effectLst')) && (this._effect[idx] = this._converter.effectLst(t));
-        },
-        font: function (idx) {
-            if (t = this._font[idx])
-                return t;
-            return (t = this.wXml.$1('fontScheme>' + idx + 'Font>latin')) && (this._effect[idx] = t.attr('typeface'));
-        }
-    });
-}(require('../model/shape'));
-},{"../model/shape":93}],111:[function(require,module,exports){
-module.exports = function () {
-    return $.newClass(function (wXml, wDoc) {
-        this.wXml = wXml;
-        this.wDoc = wDoc;
-    }, {
-        type: null,
-        parse: function (visitFactories) {
-        }
-    });
-}();
-},{}],112:[function(require,module,exports){
-module.exports = function () {
-    return $.newClass(function (name, doc) {
-        this.name = name;
-        this.doc = doc;
-        this.documentElement = doc.parts[name] && $.parseXML(doc.parts[name].asText()).documentElement;
-        this.rels = {};
-        var folder = '', relName = '_rels/' + name + '.rels', i = name.lastIndexOf('/');
-        if (i !== -1) {
-            folder = name.substring(0, i);
-            relName = folder + '/_rels/' + name.substring(i + 1) + '.rels';
-        }
-        if (!doc.parts[relName])
-            return;
-        $.parseXML(doc.parts[relName].asText()).documentElement.$('Relationship').asArray().forEach(function (a) {
-            this.rels[a.getAttribute('Id')] = {
-                type: a.getAttribute('Type').split('/').pop(),
-                target: (folder ? folder + '/' : '') + a.getAttribute('Target')
-            };
-        }, this);
-    }, {
-        getRel: function (id) {
-            var rel = this.rels[id];
-            switch (rel.type) {
-            case 'image':
-                return this.doc.getImagePart(rel.target);
-            default:
-                return this.doc.getPart(rel.target);
-            }
-        }
-    }, {
-        is: function (o) {
-            return o && o.getRel;
-        }
-    });
-}();
-},{}],113:[function(require,module,exports){
-module.exports = function (Deferred, Extend) {
-    var $ = window.$ = {
-            Deferred: Deferred,
-            parseXML: DOMParser ? function (x) {
-                return new DOMParser().parseFromString(x, 'text/xml');
-            } : function (x) {
-                var xmlDoc = new ActiveXObject('Microsoft.XMLDOM');
-                xmlDoc.async = 'false';
-                xmlDoc.loadXML(x);
-                return xmlDoc;
-            },
-            extend: Extend,
-            isFunction: function (a) {
-                return typeof a === 'function';
-            },
-            isArray: function (a) {
-                return Array.isArray(a);
-            },
-            each: function (a, f, ctx) {
-                if (Array.isArray(a)) {
-                    a.forEach(f, ctx);
-                } else if (typeof a === 'object') {
-                    Object.keys(a).forEach(function (k) {
-                        f.call(ctx, k, a[k]);
-                    });
-                }
-            },
-            map: function (a, f, ctx) {
-                return a.map(f, ctx);
-            }
-        };
-    $.extend($, {
-        toArray: function (args) {
-            var a = [];
-            for (var i = 0, len = args.length; i < len; i++)
-                a.push(args[i]);
-            return a;
-        },
-        newClass: function (constructor, properties, classProperties) {
-            if (!$.isFunction(constructor)) {
-                classProperties = properties;
-                properties = constructor;
-                constructor = function () {
-                };
-            }
-            $.extend(constructor.prototype, properties || {});
-            classProperties && $.extend(constructor, classProperties);
-            constructor.extend = extend;
-            return constructor;
-        }
-    });
-    function extend(constructor, properties, classProperties) {
-        var me = this;
-        if (!$.isFunction(constructor)) {
-            classProperties = properties;
-            properties = constructor;
-            constructor = function () {
-                me.apply(this, arguments);
-            };
-        }
-        $.extend(constructor.prototype, me.prototype, properties || {});
-        $.extend(constructor, me, classProperties || {});
-        return constructor;
-    }
-    var scopable = true, directChildSelector = /((^|,)\s*>)/, id = 'sxxx';
-    try {
-        document.body.querySelector(':scope>div');
-    } catch (e) {
-        scopable = false;
-    }
-    $.extend(Node.prototype, {
-        $: function (selector) {
-            if (!directChildSelector.test(selector))
-                return this.querySelectorAll(selector);
-            else if (scopable)
-                return this.querySelectorAll(selector.split(',').map(function (a) {
-                    return a.trim().charAt(0) == '>' ? ':scope' + a : a;
-                }).join(','));
-            else if (this.id) {
-                return this.querySelectorAll(selector.split(',').map(function (a) {
-                    return (a = a.trim()).charAt(0) == '>' ? a.substring(1) : a;
-                }, this).join(','));
-            } else {
-                this.id = id;
-                var nodes = this.querySelectorAll(selector.split(',').map(function (a) {
-                        return (a = a.trim()).charAt(0) == '>' ? a.substring(1) : a;
-                    }, this).join(','));
-                delete this.id;
-                return nodes;
-            }
-        },
-        $1: function (selector) {
-            if (!directChildSelector.test(selector))
-                return this.querySelector(selector);
-            else if (scopable)
-                return this.querySelector(selector.split(',').map(function (a) {
-                    return (a = a.trim()).charAt(0) == '>' ? ':scope' + a : a;
-                }).join(','));
-            else if (this.id) {
-                return this.querySelector(selector.split(',').map(function (a) {
-                    return (a = a.trim()).charAt(0) == '>' ? a.substring(1) : a;
-                }, this).join(','));
-            } else {
-                this.id = id;
-                var nodes = this.querySelector(selector.split(',').map(function (a) {
-                        return (a = a.trim()).charAt(0) == '>' ? a.substring(1) : a;
-                    }, this).join(','));
-                delete this.id;
-                return nodes;
-            }
-        },
-        attr: function (name, value) {
-            if (arguments.length == 1) {
-                var attr = this.attributes.getNamedItem(name);
-                return attr ? attr.value : undefined;
-            } else if (value == null)
-                this.removeAttribute(name);
-            else
-                this.setAttribute(name, value);
-        },
-        remove: Node.prototype.remove || function () {
-            this.parentNode.removeChild(this);
-        },
-        uptrim: function () {
-            var parent = this.parentNode;
-            this.remove();
-            if (parent.childNodes.length == 0)
-                parent.uptrim();
-        }
-    });
-    $.extend(NodeList.prototype, {
-        asArray: function (o) {
-            o = o || [];
-            for (var i = 0, len = this.length; i < len; i++)
-                o.push(this[i]);
-            return o;
-        }
-    });
-    return $;
-}(require('apromise'), require('extend'));
-},{"apromise":40,"extend":41}],114:[function(require,module,exports){
 'use strict';
 // private property
 var _keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
@@ -5447,7 +3461,7 @@ exports.decode = function(input, utf8) {
 
 };
 
-},{}],115:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 'use strict';
 function CompressedObject() {
     this.compressedSize = 0;
@@ -5477,7 +3491,7 @@ CompressedObject.prototype = {
 };
 module.exports = CompressedObject;
 
-},{}],116:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 'use strict';
 exports.STORE = {
     magic: "\x00\x00",
@@ -5492,7 +3506,7 @@ exports.STORE = {
 };
 exports.DEFLATE = require('./flate');
 
-},{"./flate":121}],117:[function(require,module,exports){
+},{"./flate":49}],45:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -5596,7 +3610,7 @@ module.exports = function crc32(input, crc) {
 };
 // vim: set shiftwidth=4 softtabstop=4:
 
-},{"./utils":134}],118:[function(require,module,exports){
+},{"./utils":62}],46:[function(require,module,exports){
 'use strict';
 var utils = require('./utils');
 
@@ -5705,7 +3719,7 @@ DataReader.prototype = {
 };
 module.exports = DataReader;
 
-},{"./utils":134}],119:[function(require,module,exports){
+},{"./utils":62}],47:[function(require,module,exports){
 'use strict';
 exports.base64 = false;
 exports.binary = false;
@@ -5715,7 +3729,7 @@ exports.date = null;
 exports.compression = null;
 exports.comment = null;
 
-},{}],120:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 'use strict';
 var utils = require('./utils');
 
@@ -5822,7 +3836,7 @@ exports.isRegExp = function (object) {
 };
 
 
-},{"./utils":134}],121:[function(require,module,exports){
+},{"./utils":62}],49:[function(require,module,exports){
 'use strict';
 var USE_TYPEDARRAY = (typeof Uint8Array !== 'undefined') && (typeof Uint16Array !== 'undefined') && (typeof Uint32Array !== 'undefined');
 
@@ -5838,7 +3852,7 @@ exports.uncompress =  function(input) {
     return pako.inflateRaw(input);
 };
 
-},{"pako":137}],122:[function(require,module,exports){
+},{"pako":65}],50:[function(require,module,exports){
 'use strict';
 
 var base64 = require('./base64');
@@ -5919,7 +3933,7 @@ JSZip.base64 = {
 JSZip.compressions = require('./compressions');
 module.exports = JSZip;
 
-},{"./base64":114,"./compressions":116,"./defaults":119,"./deprecatedPublicUtils":120,"./load":123,"./object":126,"./support":130}],123:[function(require,module,exports){
+},{"./base64":42,"./compressions":44,"./defaults":47,"./deprecatedPublicUtils":48,"./load":51,"./object":54,"./support":58}],51:[function(require,module,exports){
 'use strict';
 var base64 = require('./base64');
 var ZipEntries = require('./zipEntries');
@@ -5950,7 +3964,7 @@ module.exports = function(data, options) {
     return this;
 };
 
-},{"./base64":114,"./zipEntries":135}],124:[function(require,module,exports){
+},{"./base64":42,"./zipEntries":63}],52:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 module.exports = function(data, encoding){
@@ -5960,7 +3974,7 @@ module.exports.test = function(b){
     return Buffer.isBuffer(b);
 };
 }).call(this,require("buffer").Buffer)
-},{"buffer":1}],125:[function(require,module,exports){
+},{"buffer":1}],53:[function(require,module,exports){
 'use strict';
 var Uint8ArrayReader = require('./uint8ArrayReader');
 
@@ -5982,7 +3996,7 @@ NodeBufferReader.prototype.readData = function(size) {
 };
 module.exports = NodeBufferReader;
 
-},{"./uint8ArrayReader":131}],126:[function(require,module,exports){
+},{"./uint8ArrayReader":59}],54:[function(require,module,exports){
 'use strict';
 var support = require('./support');
 var utils = require('./utils');
@@ -6752,7 +4766,7 @@ var out = {
 };
 module.exports = out;
 
-},{"./base64":114,"./compressedObject":115,"./compressions":116,"./crc32":117,"./defaults":119,"./nodeBuffer":124,"./signature":127,"./stringWriter":129,"./support":130,"./uint8ArrayWriter":132,"./utf8":133,"./utils":134}],127:[function(require,module,exports){
+},{"./base64":42,"./compressedObject":43,"./compressions":44,"./crc32":45,"./defaults":47,"./nodeBuffer":52,"./signature":55,"./stringWriter":57,"./support":58,"./uint8ArrayWriter":60,"./utf8":61,"./utils":62}],55:[function(require,module,exports){
 'use strict';
 exports.LOCAL_FILE_HEADER = "PK\x03\x04";
 exports.CENTRAL_FILE_HEADER = "PK\x01\x02";
@@ -6761,7 +4775,7 @@ exports.ZIP64_CENTRAL_DIRECTORY_LOCATOR = "PK\x06\x07";
 exports.ZIP64_CENTRAL_DIRECTORY_END = "PK\x06\x06";
 exports.DATA_DESCRIPTOR = "PK\x07\x08";
 
-},{}],128:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 'use strict';
 var DataReader = require('./dataReader');
 var utils = require('./utils');
@@ -6799,7 +4813,7 @@ StringReader.prototype.readData = function(size) {
 };
 module.exports = StringReader;
 
-},{"./dataReader":118,"./utils":134}],129:[function(require,module,exports){
+},{"./dataReader":46,"./utils":62}],57:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -6831,7 +4845,7 @@ StringWriter.prototype = {
 
 module.exports = StringWriter;
 
-},{"./utils":134}],130:[function(require,module,exports){
+},{"./utils":62}],58:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 exports.base64 = true;
@@ -6869,7 +4883,7 @@ else {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":1}],131:[function(require,module,exports){
+},{"buffer":1}],59:[function(require,module,exports){
 'use strict';
 var DataReader = require('./dataReader');
 
@@ -6918,7 +4932,7 @@ Uint8ArrayReader.prototype.readData = function(size) {
 };
 module.exports = Uint8ArrayReader;
 
-},{"./dataReader":118}],132:[function(require,module,exports){
+},{"./dataReader":46}],60:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -6956,7 +4970,7 @@ Uint8ArrayWriter.prototype = {
 
 module.exports = Uint8ArrayWriter;
 
-},{"./utils":134}],133:[function(require,module,exports){
+},{"./utils":62}],61:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -7165,7 +5179,7 @@ exports.utf8decode = function utf8decode(buf) {
 };
 // vim: set shiftwidth=4 softtabstop=4:
 
-},{"./nodeBuffer":124,"./support":130,"./utils":134}],134:[function(require,module,exports){
+},{"./nodeBuffer":52,"./support":58,"./utils":62}],62:[function(require,module,exports){
 'use strict';
 var support = require('./support');
 var compressions = require('./compressions');
@@ -7492,7 +5506,7 @@ exports.isRegExp = function (object) {
 };
 
 
-},{"./compressions":116,"./nodeBuffer":124,"./support":130}],135:[function(require,module,exports){
+},{"./compressions":44,"./nodeBuffer":52,"./support":58}],63:[function(require,module,exports){
 'use strict';
 var StringReader = require('./stringReader');
 var NodeBufferReader = require('./nodeBufferReader');
@@ -7697,7 +5711,7 @@ ZipEntries.prototype = {
 // }}} end of ZipEntries
 module.exports = ZipEntries;
 
-},{"./nodeBufferReader":125,"./object":126,"./signature":127,"./stringReader":128,"./support":130,"./uint8ArrayReader":131,"./utils":134,"./zipEntry":136}],136:[function(require,module,exports){
+},{"./nodeBufferReader":53,"./object":54,"./signature":55,"./stringReader":56,"./support":58,"./uint8ArrayReader":59,"./utils":62,"./zipEntry":64}],64:[function(require,module,exports){
 'use strict';
 var StringReader = require('./stringReader');
 var utils = require('./utils');
@@ -7978,7 +5992,7 @@ ZipEntry.prototype = {
 };
 module.exports = ZipEntry;
 
-},{"./compressedObject":115,"./object":126,"./stringReader":128,"./utils":134}],137:[function(require,module,exports){
+},{"./compressedObject":43,"./object":54,"./stringReader":56,"./utils":62}],65:[function(require,module,exports){
 // Top level file is just a mixin of submodules & constants
 'use strict';
 
@@ -7993,7 +6007,7 @@ var pako = {};
 assign(pako, deflate, inflate, constants);
 
 module.exports = pako;
-},{"./lib/deflate":138,"./lib/inflate":139,"./lib/utils/common":140,"./lib/zlib/constants":143}],138:[function(require,module,exports){
+},{"./lib/deflate":66,"./lib/inflate":67,"./lib/utils/common":68,"./lib/zlib/constants":71}],66:[function(require,module,exports){
 'use strict';
 
 
@@ -8355,7 +6369,7 @@ exports.Deflate = Deflate;
 exports.deflate = deflate;
 exports.deflateRaw = deflateRaw;
 exports.gzip = gzip;
-},{"./utils/common":140,"./utils/strings":141,"./zlib/deflate.js":145,"./zlib/messages":150,"./zlib/zstream":152}],139:[function(require,module,exports){
+},{"./utils/common":68,"./utils/strings":69,"./zlib/deflate.js":73,"./zlib/messages":78,"./zlib/zstream":80}],67:[function(require,module,exports){
 'use strict';
 
 
@@ -8721,7 +6735,7 @@ exports.inflate = inflate;
 exports.inflateRaw = inflateRaw;
 exports.ungzip  = inflate;
 
-},{"./utils/common":140,"./utils/strings":141,"./zlib/constants":143,"./zlib/gzheader":146,"./zlib/inflate.js":148,"./zlib/messages":150,"./zlib/zstream":152}],140:[function(require,module,exports){
+},{"./utils/common":68,"./utils/strings":69,"./zlib/constants":71,"./zlib/gzheader":74,"./zlib/inflate.js":76,"./zlib/messages":78,"./zlib/zstream":80}],68:[function(require,module,exports){
 'use strict';
 
 
@@ -8824,7 +6838,7 @@ exports.setTyped = function (on) {
 };
 
 exports.setTyped(TYPED_OK);
-},{}],141:[function(require,module,exports){
+},{}],69:[function(require,module,exports){
 // String encode/decode helpers
 'use strict';
 
@@ -9011,7 +7025,7 @@ exports.utf8border = function(buf, max) {
   return (pos + _utf8len[buf[pos]] > max) ? pos : max;
 };
 
-},{"./common":140}],142:[function(require,module,exports){
+},{"./common":68}],70:[function(require,module,exports){
 'use strict';
 
 // Note: adler32 takes 12% for level 0 and 2% for level 6.
@@ -9044,7 +7058,7 @@ function adler32(adler, buf, len, pos) {
 
 
 module.exports = adler32;
-},{}],143:[function(require,module,exports){
+},{}],71:[function(require,module,exports){
 module.exports = {
 
   /* Allowed flush values; see deflate() and inflate() below for details */
@@ -9092,7 +7106,7 @@ module.exports = {
   Z_DEFLATED:               8
   //Z_NULL:                 null // Use -1 or null inline, depending on var type
 };
-},{}],144:[function(require,module,exports){
+},{}],72:[function(require,module,exports){
 'use strict';
 
 // Note: we can't get significant speed boost here.
@@ -9134,7 +7148,7 @@ function crc32(crc, buf, len, pos) {
 
 
 module.exports = crc32;
-},{}],145:[function(require,module,exports){
+},{}],73:[function(require,module,exports){
 'use strict';
 
 var utils   = require('../utils/common');
@@ -10900,7 +8914,7 @@ exports.deflatePending = deflatePending;
 exports.deflatePrime = deflatePrime;
 exports.deflateTune = deflateTune;
 */
-},{"../utils/common":140,"./adler32":142,"./crc32":144,"./messages":150,"./trees":151}],146:[function(require,module,exports){
+},{"../utils/common":68,"./adler32":70,"./crc32":72,"./messages":78,"./trees":79}],74:[function(require,module,exports){
 'use strict';
 
 
@@ -10941,7 +8955,7 @@ function GZheader() {
 }
 
 module.exports = GZheader;
-},{}],147:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
 'use strict';
 
 // See state defs from inflate.js
@@ -11268,7 +9282,7 @@ module.exports = function inflate_fast(strm, start) {
   return;
 };
 
-},{}],148:[function(require,module,exports){
+},{}],76:[function(require,module,exports){
 'use strict';
 
 
@@ -12772,7 +10786,7 @@ exports.inflateSync = inflateSync;
 exports.inflateSyncPoint = inflateSyncPoint;
 exports.inflateUndermine = inflateUndermine;
 */
-},{"../utils/common":140,"./adler32":142,"./crc32":144,"./inffast":147,"./inftrees":149}],149:[function(require,module,exports){
+},{"../utils/common":68,"./adler32":70,"./crc32":72,"./inffast":75,"./inftrees":77}],77:[function(require,module,exports){
 'use strict';
 
 
@@ -13099,7 +11113,7 @@ module.exports = function inflate_table(type, lens, lens_index, codes, table, ta
   return 0;
 };
 
-},{"../utils/common":140}],150:[function(require,module,exports){
+},{"../utils/common":68}],78:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -13113,7 +11127,7 @@ module.exports = {
   '-5':   'buffer error',        /* Z_BUF_ERROR     (-5) */
   '-6':   'incompatible version' /* Z_VERSION_ERROR (-6) */
 };
-},{}],151:[function(require,module,exports){
+},{}],79:[function(require,module,exports){
 'use strict';
 
 
@@ -14313,7 +12327,7 @@ exports._tr_stored_block = _tr_stored_block;
 exports._tr_flush_block  = _tr_flush_block;
 exports._tr_tally = _tr_tally;
 exports._tr_align = _tr_align;
-},{"../utils/common":140}],152:[function(require,module,exports){
+},{"../utils/common":68}],80:[function(require,module,exports){
 'use strict';
 
 
@@ -14343,14 +12357,2165 @@ function ZStream() {
 }
 
 module.exports = ZStream;
-},{}],"docx2html":[function(require,module,exports){
+},{}],81:[function(require,module,exports){
+module.exports = function (JSZip) {
+    return $.newClass(function (parts, raw, props) {
+        this.parts = parts;
+        this.raw = raw;
+        this.props = props;
+    }, {
+        getPart: function (name) {
+            return this.parts[name];
+        },
+        getImagePart: function (name) {
+            var part = this.parts[name];
+            var crc32 = part._data.crc32;
+            var buffer = part.asArrayBuffer();
+            buffer.crc32 = part._data.crc32 = crc32;
+            return buffer;
+        },
+        parse: function () {
+        },
+        release: function () {
+        },
+        factory: function () {
+            return this.constructor.factory.apply(this, arguments);
+        }
+    }, {
+        load: function (inputFile) {
+            var p = new $.Deferred(), DocumentSelf = this;
+            function parse(data, name) {
+                var raw = new JSZip(data), parts = {};
+                raw.filter(function (path, file) {
+                    parts[path] = file;
+                });
+                p.resolve(new DocumentSelf(parts, raw, {
+                    name: name,
+                    lastModified: inputFile.lastModified,
+                    size: inputFile.size
+                }));
+            }
+            if (typeof FileReader != 'undefined') {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    parse(e.target.result, inputFile.name.replace(/\.docx$/i, ''));
+                };
+                reader.readAsArrayBuffer(inputFile);
+            } else {
+                var a = require;
+                a('fs').readFile(inputFile, function (error, data) {
+                    if (error)
+                        p.reject(error);
+                    else if (data) {
+                        parse(data, inputFile.split(/[\/\\]/).pop().replace(/\.docx$/i, ''));
+                    }
+                });
+            }
+            return p;
+        },
+        factory: null
+    });
+}(require('jszip'));
+},{"jszip":50}],82:[function(require,module,exports){
+module.exports = function (Super, Part) {
+    return Super.extend(function () {
+        Super.apply(this, arguments);
+        var rels = this.rels = {};
+        $.each(new Part('', this).rels, function (id, rel) {
+            rels[rel.type] = rel.target;
+        });
+        this.partMain = new Part(this.rels['officeDocument'], this);
+        this.content = [];
+    }, {
+        vender: 'Microsoft',
+        product: 'Office 2010',
+        getPart: function (name) {
+            var part = this.parts[name] || (name = this.rels[name]) && this.parts[name];
+            if (!part)
+                return null;
+            if (Part.is(part))
+                return part;
+            return this.parts[name] = new Part(name, this);
+        },
+        parse: function () {
+            Super.prototype.parse.apply(this, arguments);
+            this.getPart('core-properties').documentElement.$('keywords,description,title').forEach(function (x) {
+                var v = x.textContent.trim();
+                v.length && (this[x.localName] = v);
+            }, this.props);
+            typeof this.props.keywords != 'undefined' && (this.props.keywords = this.props.keywords.split(','));
+            this.getPart('extended-properties').documentElement.$('Template').forEach(function (x) {
+                var v = x.textContent.trim();
+                v.length && (this[x.localName] = v);
+            }, this.props);
+        }
+    }, {
+        Visitor: $.newClass(function Any(srcModel, targetParent) {
+            this.srcModel = srcModel;
+            this.parent = parent;
+        }, {
+            visit: function () {
+                console.info(this.srcModel.type);
+            },
+            _shouldIgnore: function () {
+                return false;
+            }
+        }),
+        createVisitorFactory: function (factory, opt) {
+            var Any = this.Visitor;
+            switch (typeof factory) {
+            case 'function':
+                break;
+            case 'object':
+                var rawMap = factory;
+                factory = function (srcModel, targetParent) {
+                    var map = factory.map;
+                    if (map['*'])
+                        Any = map['*'];
+                    var Visitor = map[srcModel.type], visitor, t;
+                    if (!srcModel.type);
+                    else if (Visitor)
+                        visitor = new Visitor(srcModel, targetParent);
+                    else if ((t = srcModel.type.split('.')).length > 1) {
+                        do {
+                            t.pop();
+                            if (Visitor = map[t.join('.')]) {
+                                visitor = new Visitor(srcModel, targetParent);
+                                break;
+                            }
+                        } while (t.length > 1);
+                    }
+                    if (!visitor)
+                        visitor = new Any(srcModel, targetParent);
+                    if (!visitor._shouldIgnore())
+                        return visitor;
+                };
+                factory.map = rawMap;
+                break;
+            case 'undefined':
+                factory = function (srcModel, targetParent) {
+                    return new Any(srcModel, targetParent);
+                };
+                break;
+            default:
+                throw 'unsupported factory';
+            }
+            if (opt) {
+                var _raw = factory;
+                factory = function () {
+                    var converter = _raw.call(null, arguments);
+                    converter && (converter.options = opt);
+                    return converter;
+                };
+                if (typeof _raw.map != undefined)
+                    factory.map = _raw.map;
+            }
+            factory.with = function (targetParent) {
+                function paramizedFactory(srcModel) {
+                    return factory(srcModel, targetParent);
+                }
+                paramizedFactory.with = factory.with;
+                return paramizedFactory;
+            };
+            return factory;
+        }
+    });
+}(require('../document'), require('./part'));
+},{"../document":81,"./part":151}],83:[function(require,module,exports){
+module.exports = function (Super, factory, FontTheme, ColorTheme, FormatTheme) {
+    function ParseContext(current) {
+        this.current = current;
+    }
+    return Super.extend(function () {
+        Super.apply(this, arguments);
+        var rels = this.rels, builtIn = 'settings,webSettings,theme,styles,stylesWithEffects,fontTable,numbering,footnotes,endnotes'.split(',');
+        $.each(this.partMain.rels, function (id, rel) {
+            builtIn.indexOf(rel.type) != -1 && (rels[rel.type] = rel.target);
+        });
+        this.style = new this.constructor.Style();
+        this.parseContext = {
+            section: new ParseContext(),
+            part: new ParseContext(this.partMain),
+            bookmark: new ParseContext(),
+            field: function (ctx) {
+                ctx.instruct = function (t) {
+                    this[this.length - 1].instruct(t);
+                };
+                ctx.seperate = function (model) {
+                    this[this.length - 1].seperate(model);
+                };
+                ctx.end = function (model) {
+                    this.pop().end(model);
+                };
+                return ctx;
+            }([])
+        };
+    }, {
+        type: 'Word',
+        ext: 'docx',
+        parse: function (visitFactories) {
+            Super.prototype.parse.apply(this, arguments);
+            this.content = this.factory(this.partMain.documentElement, this);
+            var roots = this.content.parse($.isArray(visitFactories) ? visitFactories : $.toArray(arguments));
+            this.release();
+            return roots.length == 1 ? roots[0] : roots;
+        },
+        getRel: function (id) {
+            return this.parseContext.part.current.getRel(id);
+        },
+        getColorTheme: function () {
+            if (this.colorTheme)
+                return this.colorTheme;
+            return this.colorTheme = new ColorTheme(this.getPart('theme').documentElement.$1('clrScheme'), this.getPart('settings').documentElement.$1('clrSchemeMapping'));
+        },
+        getFontTheme: function () {
+            if (this.fontTheme)
+                return this.fontTheme;
+            return this.fontTheme = new FontTheme(this.getPart('theme').documentElement.$1('fontScheme'), this.getPart('settings').documentElement.$1('themeFontLang'));
+        },
+        getFormatTheme: function () {
+            if (this.formatTheme)
+                return this.formatTheme;
+            return this.formatTheme = new FormatTheme(this.getPart('theme').documentElement.$1('fmtScheme'), this);
+        },
+        release: function () {
+            with (this.parseContext) {
+                delete section;
+                delete part;
+                delete bookmark;
+            }
+            delete this.parseContext;
+            Super.prototype.release.call(this);
+        }
+    }, {
+        Style: function () {
+            var ids = {}, defaults = {};
+            $.extend(this, {
+                setDefault: function (style) {
+                    defaults[style.type] = style;
+                },
+                getDefault: function (type) {
+                    return defaults[type];
+                },
+                get: function (id) {
+                    return ids[id];
+                },
+                set: function (style, id) {
+                    ids[id || style.id] = style;
+                }
+            });
+        },
+        factory: factory
+    });
+}(require('../document'), require('./factory'), require('./theme/font'), require('./theme/color'), require('./theme/format'));
+},{"../document":82,"./factory":84,"./theme/color":147,"./theme/font":148,"./theme/format":149}],84:[function(require,module,exports){
+module.exports = function (require, Model) {
+    var models = { '*': Model };
+    for (var i = 2, model; i < arguments.length; i++) {
+        model = arguments[i];
+        model.prototype.type && (models[model.prototype.type] = model);
+    }
+    function factory(wXml, doc, parent, more) {
+        var tag = wXml.localName, swap;
+        function attr(node, name) {
+            return node ? node.attr(name) : undefined;
+        }
+        if ('document' == tag)
+            return new (require('./model/document'))(wXml, doc, parent);
+        else if ('styles' == tag)
+            return new (require('./model/documentStyles'))(wXml, doc);
+        else if ('abstractNum' == tag)
+            return new (require('./model/style/numberingDefinition'))(wXml, doc);
+        else if ('num' == tag)
+            return new (require('./model/style/list'))(wXml, doc);
+        else if ('style' == tag) {
+            switch (wXml.attr('w:type')) {
+            case 'paragraph':
+                return new (require('./model/style/paragraph'))(wXml, doc);
+            case 'character':
+                return new (require('./model/style/inline'))(wXml, doc);
+            case 'table':
+                return new (require('./model/style/table'))(wXml, doc);
+            case 'numbering':
+                return new (require('./model/style/numbering'))(wXml, doc);
+            }
+        } else if ('docDefaults' == tag)
+            return new (require('./model/style/document'))(wXml, doc);
+        else if ('body' == tag)
+            return new (require('./model/body'))(wXml, doc, parent);
+        else if ('p' == tag) {
+            var styleId = attr(wXml.$1('>pPr>pStyle'), 'w:val'), style = doc.style.get(styleId);
+            if (wXml.$1('>pPr>numPr') || style && style.getNumId() != -1)
+                return new (require('./model/list'))(wXml, doc, parent);
+            if (style && style.getOutlineLevel() != -1)
+                return new (require('./model/heading'))(wXml, doc, parent);
+            return new (require('./model/paragraph'))(wXml, doc, parent);
+        } else if ('r' == tag) {
+            var style = doc.style.get(attr(wXml.$1('>rPr>rStyle'), 'w:val'));
+            if (style && style.getOutlineLevel() != -1)
+                return new (require('./model/headingInline'))(wXml, doc, parent);
+            else if (wXml.childNodes.length == 1 || wXml.childNodes == 2 && wXml.firstChild.localName == 'rPr') {
+                switch (wXml.lastChild.localName) {
+                case 'fldChar':
+                case 'instrText':
+                    return factory(wXml.lastChild, doc, parent);
+                }
+            }
+            return new (require('./model/inline'))(wXml, doc, parent);
+        } else if ('instrText' == tag)
+            return new (require('./model/fieldInstruct'))(wXml, doc, parent);
+        else if ('t' == tag)
+            return new (require('./model/text'))(wXml, doc, parent);
+        else if ('sym' == tag && wXml.parentNode.localName == 'r')
+            return new (require('./model/symbol'))(wXml, doc, parent);
+        else if ('softHyphen' == tag && wXml.parentNode.localName == 'r')
+            return new (require('./model/softHyphen'))(wXml, doc, parent);
+        else if ('noBreakHyphen' == tag && wXml.parentNode.localName == 'r')
+            return new (require('./model/noBreakHyphen'))(wXml, doc, parent);
+        else if ('tab' == tag && wXml.parentNode.localName == 'r')
+            return new (require('./model/tab'))(wXml, doc, parent);
+        else if ('fldSimple' == tag)
+            return new (require('./model/fieldSimple'))(wXml, doc, parent);
+        else if ('fldChar' == tag) {
+            switch (wXml.attr('w:fldCharType')) {
+            case 'begin':
+                return new (require('./model/fieldBegin'))(wXml, doc, parent);
+                break;
+            case 'end':
+                return new (require('./model/fieldEnd'))(wXml, doc, parent);
+                break;
+            case 'separate':
+                return new (require('./model/fieldSeparate'))(wXml, doc, parent);
+                break;
+            }
+        } else if ('tbl' == tag)
+            return new (require('./model/table'))(wXml, doc, parent);
+        else if ('tr' == tag)
+            return new (require('./model/row'))(wXml, doc, parent);
+        else if ('tc' == tag)
+            return new (require('./model/cell'))(wXml, doc, parent);
+        else if ('br' == tag)
+            return new (require('./model/br'))(wXml, doc, parent);
+        else if ('hyperlink' == tag && 'p' == wXml.parentNode.localName)
+            return new (require('./model/hyperlink'))(wXml, doc, parent);
+        else if ('AlternateContent' == tag)
+            return new (require('./model/drawingAnchor'))(wXml, doc, parent);
+        else if ('wsp' == tag)
+            return new (require('./model/shape'))(wXml, doc, parent);
+        else if ('inline' == tag) {
+            var type = wXml.$1('>graphic>graphicData').attr('uri').split('/').pop();
+            switch (type) {
+            case 'picture':
+                return new (require('./model/image'))(wXml, doc, parent);
+            case 'diagram':
+                return new (require('./model/diagram'))(wXml, doc, parent);
+            case 'chart':
+                return new (require('./model/chart'))(wXml, doc, parent);
+            default:
+                console.error('inline ' + type + ' is not suppored yet.');
+            }
+        } else if ('sdt' == tag) {
+            tag = wXml.firstChild.lastChild.localName;
+            if ('text' == tag)
+                return new (require('./model/control/text'))(wXml, doc, parent);
+            else if ('picture' == tag)
+                return new (require('./model/control/picture'))(wXml, doc, parent);
+            else if ('docPartList' == tag)
+                return new (require('./model/control/gallery'))(wXml, doc, parent);
+            else if ('comboBox' == tag)
+                return new (require('./model/control/combobox'))(wXml, doc, parent);
+            else if ('dropDownList' == tag)
+                return new (require('./model/control/dropdown'))(wXml, doc, parent);
+            else if ('date' == tag)
+                return new (require('./model/control/date'))(wXml, doc, parent);
+            else if ('checkbox' == tag)
+                return new (require('./model/control/checkbox'))(wXml, doc, parent);
+            else
+                return new (require('./model/control/richtext'))(wXml, doc, parent);
+        } else if ('bookmarkStart' == tag)
+            return new (require('./model/bookmarkStart'))(wXml, doc, parent);
+        else if ('bookmarkEnd' == tag)
+            return new (require('./model/bookmarkEnd'))(wXml, doc, parent);
+        else if ('oMathPara' == tag)
+            return new (require('./model/equation'))(wXml, doc, parent);
+        else if ('object' == tag)
+            return new (require('./model/OLE'))(wXml, doc, parent);
+        else if ('sectPr' == tag)
+            return new (require('./model/section'))(wXml, doc, parent);
+        return new Model(wXml, doc, parent);
+    }
+    factory.map = models;
+    return factory;
+}(require, require('./model'), require('./model/document'), require('./model/section'), require('./model/body'), require('./model/table'), require('./model/row'), require('./model/cell'), require('./model/paragraph'), require('./model/list'), require('./model/heading'), require('./model/inline'), require('./model/headingInline'), require('./model/text'), require('./model/fieldBegin'), require('./model/fieldInstruct'), require('./model/fieldSeparate'), require('./model/fieldEnd'), require('./model/fieldSimple'), require('./model/bookmarkStart'), require('./model/bookmarkEnd'), require('./model/tab'), require('./model/softHyphen'), require('./model/noBreakHyphen'), require('./model/symbol'), require('./model/br'), require('./model/hyperlink'), require('./model/drawingAnchor'), require('./model/shape'), require('./model/image'), require('./model/chart'), require('./model/diagram'), require('./model/documentStyles'), require('./model/style/document'), require('./model/style/paragraph'), require('./model/style/table'), require('./model/style/inline'), require('./model/style/numbering'), require('./model/style/numberingDefinition'), require('./model/style/list'), require('./model/control/richtext'), require('./model/control/text'), require('./model/control/picture'), require('./model/control/gallery'), require('./model/control/combobox'), require('./model/control/dropdown'), require('./model/control/date'), require('./model/control/checkbox'), require('./model/equation'), require('./model/OLE'));
+},{"./model":85,"./model/OLE":86,"./model/body":87,"./model/bookmarkEnd":88,"./model/bookmarkStart":89,"./model/br":90,"./model/cell":91,"./model/chart":92,"./model/control/checkbox":94,"./model/control/combobox":95,"./model/control/date":96,"./model/control/dropdown":97,"./model/control/gallery":98,"./model/control/picture":99,"./model/control/richtext":100,"./model/control/text":101,"./model/diagram":102,"./model/document":103,"./model/documentStyles":104,"./model/drawingAnchor":106,"./model/equation":107,"./model/fieldBegin":108,"./model/fieldEnd":109,"./model/fieldInstruct":110,"./model/fieldSeparate":111,"./model/fieldSimple":112,"./model/heading":120,"./model/headingInline":121,"./model/hyperlink":122,"./model/image":123,"./model/inline":124,"./model/list":125,"./model/noBreakHyphen":126,"./model/paragraph":127,"./model/row":129,"./model/section":131,"./model/shape":132,"./model/softHyphen":133,"./model/style/document":135,"./model/style/inline":136,"./model/style/list":137,"./model/style/numbering":138,"./model/style/numberingDefinition":139,"./model/style/paragraph":140,"./model/style/table":142,"./model/symbol":143,"./model/tab":144,"./model/table":145,"./model/text":146}],85:[function(require,module,exports){
+module.exports = function (Parser, require) {
+    return Parser.extend(function (wXml, wDoc, mParent) {
+        Parser.apply(this, arguments);
+        this.mParent = mParent;
+        this.content = [];
+        if (mParent)
+            mParent.content.push(this);
+    }, {
+        parse: function (visitFactories) {
+            var visitors = [];
+            var paramizedVisitFactories = [];
+            $.map(visitFactories, function (visitFactory) {
+                var visitor = visitFactory(this);
+                if (visitor) {
+                    visitors.push(visitor);
+                    visitor.visit();
+                    paramizedVisitFactories.push(visitFactory.with(visitor));
+                }
+            }.bind(this));
+            var factory = require('./factory');
+            this._iterate(function (wXml) {
+                factory(wXml, this.wDoc, this).parse(paramizedVisitFactories);
+            }.bind(this), paramizedVisitFactories, visitors);
+            return visitors;
+        },
+        _iterate: function (f, paramizedVisitFactories) {
+            for (var i = 0, children = this._getValidChildren(), l = children ? children.length : 0; i < l; i++)
+                !this._shouldIgnore(children[i]) && f(children[i]);
+        },
+        _getValidChildren: function () {
+            return this.wXml.childNodes;
+        },
+        _shouldIgnore: function (wXml) {
+            return false;
+        },
+        _attr: function (selector, key) {
+            var n = arguments.length == 1 ? (key = selector, this.wXml) : this.wXml.$1(selector);
+            return n ? n.attr(key) : null;
+        },
+        _val: function (selector) {
+            return this._attr(selector, 'w:val');
+        }
+    });
+}(require('../parser'), require);
+},{"../parser":150,"./factory":84}],86:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({ type: 'OLE' });
+}(require('../model'));
+},{"../model":85}],87:[function(require,module,exports){
+module.exports = function (Model, Section) {
+    return Model.extend({
+        type: 'body',
+        _getValidChildren: function () {
+            return this.wXml.$('sectPr');
+        }
+    });
+}(require('../model'), require('./section'));
+},{"../model":85,"./section":131}],88:[function(require,module,exports){
+module.exports = function (Range) {
+    return Range.extend({
+        type: 'bookmarkEnd',
+        getName: function () {
+            this.wDoc.parseContext.bookmark[this.wXml.attr('w:id')];
+        }
+    });
+}(require('./rangeBase'));
+},{"./rangeBase":128}],89:[function(require,module,exports){
+module.exports = function (Super) {
+    return Super.extend({
+        type: 'bookmarkStart',
+        parse: function () {
+            Super.prototype.parse.apply(this, arguments);
+            this.wDoc.parseContext.bookmark[this.wXml.attr('w:id')] = this.wXml.attr('w:name');
+        },
+        getName: function () {
+            return this.wXml.attr('w:name');
+        }
+    });
+}(require('../model'));
+},{"../model":85}],90:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({ type: 'br' });
+}(require('../model'));
+},{"../model":85}],91:[function(require,module,exports){
+module.exports = function (Model, Style) {
+    return Model.extend({
+        type: 'cell',
+        getDirectStyle: function (pr) {
+            return (pr = this.wXml.$1('>tcPr')) && new Style.CellProperties(pr, this.wDoc, this);
+        }
+    });
+}(require('../model'), require('./style/table'));
+},{"../model":85,"./style/table":142}],92:[function(require,module,exports){
+module.exports = function (Super) {
+    return Super.extend({ type: 'chart' });
+}(require('./graphic'));
+},{"./graphic":118}],93:[function(require,module,exports){
+module.exports = function (SDT) {
+    return SDT.extend({
+        getTag: function (t) {
+            return (t = this.wXml.$1('>sdtPr>tag')) && t.attr('w:val') || '';
+        },
+        isInline: function () {
+            return !this.wXml.$1('p,table');
+        }
+    });
+}(require('./sdt'));
+},{"./sdt":130}],94:[function(require,module,exports){
+module.exports = function (Control) {
+    return Control.extend({ type: 'control.checkbox' });
+}(require('../control'));
+},{"../control":93}],95:[function(require,module,exports){
+module.exports = function (Control) {
+    return Control.extend({ type: 'control.combobox' });
+}(require('../control'));
+},{"../control":93}],96:[function(require,module,exports){
+module.exports = function (Control) {
+    return Control.extend({ type: 'control.date' });
+}(require('../control'));
+},{"../control":93}],97:[function(require,module,exports){
+module.exports = function (Control) {
+    return Control.extend({ type: 'control.dropdown' });
+}(require('../control'));
+},{"../control":93}],98:[function(require,module,exports){
+module.exports = function (Control) {
+    return Control.extend({ type: 'control.gallery' });
+}(require('../control'));
+},{"../control":93}],99:[function(require,module,exports){
+module.exports = function (Control) {
+    return Control.extend({ type: 'control.picture' });
+}(require('../control'));
+},{"../control":93}],100:[function(require,module,exports){
+module.exports = function (Control) {
+    return Control.extend({ type: 'control.richtext' });
+}(require('../control'));
+},{"../control":93}],101:[function(require,module,exports){
+module.exports = function (Control) {
+    return Control.extend({ type: 'control.text' });
+}(require('../control'));
+},{"../control":93}],102:[function(require,module,exports){
+module.exports = function (Super) {
+    return Super.extend({ type: 'diagram' });
+}(require('./graphic'));
+},{"./graphic":118}],103:[function(require,module,exports){
+module.exports = function (Super) {
+    return Super.extend({
+        type: 'document',
+        parse: function () {
+            var visitors = Super.prototype.parse.apply(this, arguments);
+            visitors.forEach(function (a) {
+                a.props = this.wDoc.props;
+            }.bind(this));
+            return visitors;
+        },
+        _getValidChildren: function () {
+            var children = [
+                    this.wDoc.getPart('styles').documentElement,
+                    this.wXml.$1('body')
+                ];
+            var numbering = this.wDoc.getPart('numbering');
+            if (numbering)
+                children.splice(1, 0, numbering.documentElement);
+            return children;
+        }
+    });
+}(require('../model'));
+},{"../model":85}],104:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({
+        type: 'documentStyles',
+        _getValidChildren: function () {
+            return this.wXml.$('docDefaults,style');
+        }
+    });
+}(require('../model'));
+},{"../model":85}],105:[function(require,module,exports){
+module.exports = function (Super, Style) {
+    return Super.extend(function (wXml) {
+        Super.apply(this, arguments);
+        this.wDrawing = null;
+    }, {
+        getDirectStyle: function () {
+            return new this.constructor.Properties(this.wDrawing, this.wDoc, this);
+        },
+        _getValidChildren: function () {
+            return [];
+        }
+    }, {
+        Properties: Style.Properties.extend({
+            _getValidChildren: function (t) {
+                return [
+                    this.wXml.$1('extent'),
+                    this.wXml.$1('effectExtent')
+                ];
+            },
+            extent: function (x) {
+                return {
+                    width: this.asPt(x.attr('cx'), 'cm'),
+                    height: this.asPt(x.attr('cy'), 'cm')
+                };
+            },
+            effectExtent: function (x) {
+                return this.asObject(x, function (x) {
+                    return this.asPt(x, 'cm');
+                }.bind(this));
+            },
+            distT: function (x) {
+                if (x = parseInt(x.value))
+                    return this.asPt(x, 'cm');
+                return this.EMPTY;
+            },
+            distB: function (x) {
+                return this.distT(x);
+            },
+            distR: function (x) {
+                return this.distT(x);
+            },
+            distL: function (x) {
+                return this.distT(x);
+            }
+        }),
+        SpProperties: Style.Properties.extend({
+            naming: {
+                custGeom: 'path',
+                prstGeom: 'path'
+            },
+            xfrm: function (x) {
+                var ext = x.$1('ext'), offset = x.$1('off');
+                return this.world = {
+                    width: this.asPt(ext.attr('cx'), 'cm'),
+                    height: this.asPt(ext.attr('cy'), 'cm'),
+                    x: this.asPt(offset.attr('x'), 'cm'),
+                    y: this.asPt(offset.attr('y'), 'cm')
+                };
+            },
+            solidFill: function (x) {
+                var elColor = x.firstChild, color = this.asColor(elColor.attr('val')), t;
+                switch (elColor.localName) {
+                case 'schemeClr':
+                    color = this.wDoc.getColorTheme().get(color);
+                    break;
+                }
+                if (t = elColor.$1('shade'))
+                    color = this.shadeColor(color, -1 * parseInt(t.attr('val')) / 1000);
+                if (t = elColor.$1('lumOff'))
+                    color = this.shadeColor(color, -1 * parseInt(t.attr('val')) / 1000);
+                return color;
+            },
+            noFill: function (x) {
+                return 1;
+            },
+            gradFill: function (x) {
+                var type = x.$1('lin,path'), o = this.asObject(type), stops = [];
+                for (var gs = x.$('gs'), a, i = 0, len = gs.length; i < len; i++)
+                    stops.push({
+                        position: parseInt(gs[i].attr('pos')) / 1000,
+                        color: this.solidFill(gs[i])
+                    });
+                o.ang && (o.angel = parseInt(o.ang) / 60000, delete o.ang);
+                o.path && (o.rect = this.asObject(type.firstChild, function (x) {
+                    return parseInt(x) / 1000;
+                }));
+                o.path = type.localName == 'lin' ? 'linear' : o.path;
+                o.stops = stops;
+                return o;
+            },
+            ln: function (x) {
+                if (x.$1('noFill'))
+                    return { width: 0 };
+                var o = this.asObject(x), t;
+                (t = x.$1('solidFill')) && (o.color = this.solidFill(t));
+                (t = o.w) && (o.width = this.asPt(t, 'cm')) && delete o.w;
+                (t = x.$1('prstDash')) && (o.dash = t.attr('val'));
+                return o;
+            },
+            effectLst: function (x) {
+            },
+            blipFill: function (x) {
+                return this.wDoc.getRel(x.$1('blip').attr('r:embed'));
+            },
+            prstGeom: function (x) {
+                var px = this.pt2Px, w = px(this.world.width), h = px(this.world.height);
+                switch (x.attr('prst')) {
+                case 'leftBrace':
+                    return {
+                        shape: 'path',
+                        path: 'M ' + w + ' 0 L 0 ' + h / 2 + ' L ' + w + ' ' + h + ' Z'
+                    };
+                default:
+                    return { shape: x.attr('prst') };
+                }
+            },
+            custGeom: function (x) {
+                var path = [], px = function (x) {
+                        return this.pt2Px(this.asPt(x, 'cm'));
+                    }.bind(this);
+                for (var a, children = x.$1('path').children, len = children.length, i = 0; i < len; i++) {
+                    a = children[i];
+                    switch (a.localName) {
+                    case 'moveTo':
+                        path.push('M ' + px(a.firstChild.attr('x')) + ' ' + px(a.firstChild.attr('y')));
+                        break;
+                    case 'lnTo':
+                        path.push('L ' + px(a.firstChild.attr('x')) + ' ' + px(a.firstChild.attr('y')));
+                        break;
+                        break;
+                    case 'cubicBezTo':
+                        path.push('L ' + px(a.childNodes[0].attr('x')) + ' ' + px(a.childNodes[0].attr('y')));
+                        path.push('Q ' + px(a.childNodes[1].attr('x')) + ' ' + px(a.childNodes[1].attr('y')) + ' ' + px(a.childNodes[2].attr('x')) + ' ' + px(a.childNodes[2].attr('y')));
+                        break;
+                    }
+                }
+                return {
+                    shape: 'path',
+                    path: path.join(' ')
+                };
+            }
+        })
+    });
+}(require('../model'), require('./style'));
+},{"../model":85,"./style":134}],106:[function(require,module,exports){
+module.exports = function (Super) {
+    function refine(name) {
+        return name.replace(/-(\w)/, function (a, b) {
+            return b.toUpperCase();
+        });
+    }
+    return Super.extend(function (wXml, wDoc, mParent) {
+        Super.apply(this, arguments);
+        this.wDrawing = wXml.$1('drawing>:first-child');
+    }, {
+        type: 'drawing.anchor',
+        _getValidChildren: function () {
+            return this.wDrawing.$('wsp');
+        }
+    }, {
+        Properties: Super.Properties.extend({
+            type: 'shape',
+            naming: $.extend(Super.Properties.prototype.naming, {
+                wrapNone: 'wrap',
+                wrapSquare: 'wrap',
+                wrapTopAndBottom: 'wrap',
+                wrapTight: 'wrap',
+                wrapThrough: 'wrap'
+            }),
+            _getValidChildren: function () {
+                var t, children = Super.Properties.prototype._getValidChildren.apply(this, arguments);
+                'positionH,positionV,wrapNone,wrapSquare,wrapTopAndBottom,wrapTight,wrapThrough'.split(',').forEach(function (a) {
+                    (t = this.wXml.$1(a)) && children.push(t);
+                }, this);
+                return children;
+            },
+            positionH: function (x) {
+                var o = { relativeFrom: x.attr('relativeFrom') };
+                o[x.firstChild.localName] = x.firstChild.localName == 'posOffset' ? this.asPt(x.firstChild.textContent, 'cm') : x.firstChild.textContent;
+                return o;
+            },
+            positionV: function (x) {
+                var o = { relativeFrom: x.attr('relativeFrom') };
+                o[x.firstChild.localName] = x.firstChild.localName == 'posOffset' ? this.asPt(x.firstChild.textContent, 'cm') : x.firstChild.textContent;
+                return o;
+            },
+            wrapNone: function () {
+                return 'none';
+            },
+            wrapSquare: function () {
+                return 'square';
+            },
+            wrapTopAndBottom: function () {
+                return 'topAndBottom';
+            },
+            wrapTight: function () {
+                return 'tight';
+            },
+            wrapThrough: function () {
+                return 'through';
+            },
+            behindDoc: function (x) {
+                return x.value == '0' ? this.EMPTY : true;
+            }
+        })
+    });
+}(require('./drawing'));
+},{"./drawing":105}],107:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({ type: 'equation' });
+}(require('../model'));
+},{"../model":85}],108:[function(require,module,exports){
+module.exports = function (Super, require) {
+    return Super.extend(function (wXml, wDoc, mParent) {
+        Super.apply(this, arguments);
+        this.commands = [];
+    }, {
+        type: 'fieldBegin',
+        parse: function () {
+            this.wDoc.parseContext.field.push(this);
+            Super.prototype.parse.apply(this, arguments);
+        },
+        instruct: function (t) {
+            this.commands.push(t);
+        },
+        seperate: function (seperator) {
+        },
+        end: function (endVisitors) {
+        },
+        _iterate: function (f, factories, visitors) {
+            this.end = function (endVisitors) {
+                var model = this.constructor.factory(this.commands.join('').trim(), this.wDoc, this);
+                if (model)
+                    model.parse(visitors, endVisitors);
+            };
+        }
+    }, {
+        factory: function (instruct, wDoc, mParent) {
+            var index = instruct.indexOf(' '), type = index != -1 ? instruct.substring(0, index) : instruct;
+            type = type.toLowerCase();
+            try {
+                return new (require('./field/' + type))(instruct.trim(), wDoc, mParent);
+            } catch (e) {
+            }
+        }
+    });
+}(require('../model'), require, require('./field/hyperlink'), require('./field/date'), require('./field/ref'));
+},{"../model":85,"./field/date":113,"./field/hyperlink":115,"./field/ref":116}],109:[function(require,module,exports){
+module.exports = function (Super) {
+    return Super.extend({
+        type: 'fieldEnd',
+        _iterate: function (f, factories, visitors) {
+            this.wDoc.parseContext.field.end(visitors);
+        }
+    });
+}(require('../model'));
+},{"../model":85}],110:[function(require,module,exports){
+module.exports = function (Super) {
+    return Super.extend(function (wXml, wDoc, mParent) {
+        Super.apply(this, arguments);
+        wDoc.parseContext.field.instruct(wXml.textContent);
+    }, {
+        type: 'fieldInstruct',
+        parse: function () {
+        }
+    });
+}(require('../model'));
+},{"../model":85}],111:[function(require,module,exports){
+module.exports = function (Super) {
+    return Super.extend({
+        type: 'fieldEnd',
+        parse: function (factories) {
+            this.wDoc.parseContext.field.seperate(this);
+        }
+    });
+}(require('../model'));
+},{"../model":85}],112:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({ type: 'fieldSimple' });
+}(require('../model'));
+},{"../model":85}],113:[function(require,module,exports){
+module.exports = function (Super) {
+    return Super.extend({ type: 'fied.date' }, {
+        FieldCode: Super.FieldCode.extend({
+            parse: function () {
+                var option = null;
+                while (option = this.nextSwitch()) {
+                    switch (option.type) {
+                    case '@':
+                        var i = option.data.indexOf('"');
+                        if (i != -1)
+                            this.format = option.data.substring(0, i);
+                        else
+                            this.format = option.data;
+                        break;
+                    }
+                }
+            }
+        })
+    });
+}(require('./field'));
+},{"./field":114}],114:[function(require,module,exports){
+module.exports = function (Super) {
+    var Command, FieldCode, Switch;
+    return Super.extend(function (instruct, doc, parent) {
+        Super.apply(this, arguments);
+        this.command = new this.constructor.FieldCode(instruct);
+        this.command.parse();
+    }, {
+        type: 'field',
+        parse: function (visitors, endVisitors) {
+            for (var i = 0, len = visitors.length; i < len; i++)
+                visitors[i].visit(this, endVisitors[i]);
+        },
+        getCommand: function () {
+            return this.command;
+        }
+    }, {
+        Command: Command = $.newClass(function (instruct) {
+            this.data = instruct;
+        }, {
+            nextUntil: function (seperators) {
+                if (this.data.length == 0)
+                    return '';
+                var i = -1, len = this.data.length;
+                while (++i < len && seperators.indexOf(this.data.charAt(i)) == -1);
+                var node = this.data.substring(0, i).trim();
+                if (i < len)
+                    while (++i < len && seperators.indexOf(this.data.charAt(i)) != -1);
+                this.data = this.data.substring(i).trim();
+                return node;
+            },
+            nextNode: function () {
+                return this.nextUntil(' \\');
+            },
+            asInt: function (s, defaultValue) {
+                try {
+                    return parseInt(s);
+                } catch (error) {
+                    return defaultValue || 0;
+                }
+            }
+        }),
+        Switch: Switch = Command.extend(function (cmd) {
+            Command.apply(this, arguments);
+            this.withQuote = false;
+            this.type = cmd.charAt(0).toLowerCase;
+            if (cmd.length > 1 && this.type != '*' && cmd.charAt(1) != ' ') {
+                if (type.match(/\w/)) {
+                    try {
+                        parseInt(cmd.substring(1).trim());
+                        this.data = cmd.substring(1).trim();
+                        return;
+                    } catch (e) {
+                    }
+                }
+                this.type = '!';
+            } else {
+                if (this.data.length > 1)
+                    this.data = this.data.substring(1).trim();
+                else
+                    this.data = '';
+            }
+            this.__removeQuote();
+        }, {
+            __removeQuote: function () {
+                if (this.data.length == 0)
+                    return;
+                var a = this.data.charAt(0);
+                if (a == '"' || a == '\'') {
+                    this.data = this.data.substring(1);
+                    this.withQuote = true;
+                }
+                if (this.data.length == 0)
+                    return;
+                a = this.data.charAt(this.data.length - 1);
+                if (a == '"' || a == '\'') {
+                    this.data = this.data.substring(0, this.data.length - 1);
+                    this.withQuote = true;
+                }
+            },
+            _split2Int: function () {
+                if (this.data == null || this.data.length == 0)
+                    return null;
+                var a = data.split('-');
+                if (a.length == 0)
+                    return null;
+                var b = [];
+                for (var i = 0, len = a.length; i < len; i++) {
+                    try {
+                        b[i] = parseInt(a[i]);
+                    } catch (e) {
+                        b[i] = 0;
+                    }
+                }
+                return b;
+            }
+        }),
+        FieldCode: Command.extend(function (instruct) {
+            Command.apply(this, arguments);
+            this.mergeFormat = this.parseKeyWord('MERGEFORMAT');
+            this.type = this.nextNode();
+        }, {
+            parseKeyWord: function (key) {
+                if (this.data.length == 0)
+                    return false;
+                var len = this.data.length;
+                this.data = this.data.replace(new RegExp('\\*\\s*' + key + '\\s*', 'ig'), '');
+                return this.data.length != len;
+            },
+            nextSwitch: function () {
+                var option = this.nextUntil('\\');
+                if (option == null || option.length == 0)
+                    return null;
+                return new Switch(option);
+            },
+            parse: function () {
+            }
+        })
+    });
+}(require('../../model'));
+},{"../../model":85}],115:[function(require,module,exports){
+module.exports = function (Super) {
+    return Super.extend(function (instruct) {
+        Super.apply(this, arguments);
+        this.link = instruct.split('"')[1];
+    }, {
+        type: 'field.hyperlink',
+        getLink: function () {
+            return this.link;
+        }
+    });
+}(require('./field'));
+},{"./field":114}],116:[function(require,module,exports){
+module.exports = function (Super) {
+    return Super.extend(function (instruct) {
+        Super.apply(this, arguments);
+        this.link = '#' + instruct.split(/\s+/)[1];
+    });
+}(require('./hyperlink'));
+},{"./hyperlink":115}],117:[function(require,module,exports){
+module.exports = function (Header) {
+    return Header.extend({ type: 'footer' });
+}(require('./header'));
+},{"./header":119}],118:[function(require,module,exports){
+module.exports = function (Super) {
+    return Super.extend(function (wXml) {
+        Super.apply(this, arguments);
+        this.wDrawing = wXml;
+    }, {}, {
+        Properties: Super.Properties.extend($.extend({}, Super.SpProperties.prototype, {
+            naming: $.extend({}, Super.Properties.prototype.naming, Super.SpProperties.prototype.naming),
+            _getValidChildren: function (t) {
+                return Super.Properties.prototype._getValidChildren.apply(this, arguments).concat(this.wXml.$1('spPr').childNodes.asArray());
+            }
+        }))
+    });
+}(require('./drawing'));
+},{"./drawing":105}],119:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend(function (wXml, wDoc, mParent, location) {
+        Model.apply(this, arguments);
+        this.location = location;
+    }, { type: 'header' });
+}(require('../model'));
+},{"../model":85}],120:[function(require,module,exports){
+module.exports = function (Paragraph) {
+    return Paragraph.extend({
+        type: 'heading',
+        getOutlineLevel: function () {
+            return this.getNamedStyle().getOutlineLevel();
+        }
+    });
+}(require('./paragraph'));
+},{"./paragraph":127}],121:[function(require,module,exports){
+module.exports = function (Inline) {
+    return Inline.extend({ type: 'headingChar' });
+}(require('./inline'));
+},{"./inline":124}],122:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({
+        type: 'hyperlink',
+        getLink: function (a) {
+            return (a = this._attr('r:id')) ? this._getLocalLink(a) : '#' + this._attr('w:anchor');
+        },
+        _getLocalLink: function (id) {
+        }
+    });
+}(require('../model'));
+},{"../model":85}],123:[function(require,module,exports){
+module.exports = function (Super) {
+    return Super.extend({
+        type: 'image',
+        getImage: function () {
+            var blip = this.wXml.$1('blip'), rid = blip.attr('r:embed');
+            return this.wDoc.getRel(rid);
+        }
+    });
+}(require('./graphic'));
+},{"./graphic":118}],124:[function(require,module,exports){
+module.exports = function (Model, Style) {
+    return Model.extend({
+        type: 'inline',
+        getStyleId: function () {
+            return this._val('>rPr>rStyle');
+        },
+        getNamedStyle: function () {
+            return this.wDoc.style.get(this.getStyleId()) || this.wDoc.style.getDefault(Style.prototype.type);
+        },
+        getDirectStyle: function (pr) {
+            return (pr = this.wXml.$1('>rPr')) && new Style.Properties(pr, this.wDoc, this);
+        },
+        _shouldIgnore: function (wXml) {
+            return wXml.localName == 'rPr';
+        },
+        isWebHidden: function () {
+            return this.wXml.$1('>rPr>webHidden');
+        },
+        isHidden: function () {
+            return this.wXml.$1('>rPr>vanish');
+        }
+    });
+}(require('../model'), require('./style/inline'));
+},{"../model":85,"./style/inline":136}],125:[function(require,module,exports){
+module.exports = function (Super, Style) {
+    return Super.extend({
+        type: 'list',
+        getLevel: function (numPr, t) {
+            return (t = this.wXml.$1('>pPr>numPr>ilvl')) ? t.attr('w:val') : '0';
+        },
+        getNumberingStyle: function (t) {
+            var numId = (t = this.wXml.$1('>pPr>numPr')) && (t = t.$1('numId')) && (t = t.attr('w:val'));
+            !numId && (t = this.getNamedStyle()) && (numId = t.getNumId());
+            return this.wDoc.style.get(Style.asStyleId(numId));
+        }
+    });
+}(require('./paragraph'), require('./style/list'));
+},{"./paragraph":127,"./style/list":137}],126:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({
+        type: 'noBreakHyphen',
+        getText: function () {
+            return String.fromCharCode(8209);
+        }
+    });
+}(require('./text'));
+},{"./text":146}],127:[function(require,module,exports){
+module.exports = function (Model, Style) {
+    return Model.extend(function (wXml, wDoc, mParent) {
+        Model.apply(this, arguments);
+    }, {
+        type: 'paragraph',
+        getStyleId: function (a) {
+            return this._val('>pPr>pStyle');
+        },
+        getNamedStyle: function () {
+            return this.wDoc.style.get(this.getStyleId()) || this.wDoc.style.getDefault(Style.prototype.type);
+        },
+        getDirectStyle: function (pr) {
+            if (pr = this.wXml.$1('>pPr'))
+                return new Style.Properties(pr, this.wDoc, this);
+        },
+        _shouldIgnore: function (wXml) {
+            return wXml.localName == 'pPr';
+        }
+    });
+}(require('../model'), require('./style/paragraph'));
+},{"../model":85,"./style/paragraph":140}],128:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({
+        type: 'range',
+        iterate: function (visitor) {
+        },
+        first: function () {
+        },
+        last: function () {
+        }
+    });
+}(require('../model'));
+},{"../model":85}],129:[function(require,module,exports){
+module.exports = function (Model, Style) {
+    return Model.extend({
+        type: 'row',
+        getDirectStyle: function (pr) {
+            return (pr = this.wXml.$1('>trPr')) && new Style.RowProperties(pr, this.wDoc, this);
+        }
+    });
+}(require('../model'), require('./style/table'));
+},{"../model":85,"./style/table":142}],130:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({ type: 'sdt' });
+}(require('../model'));
+},{"../model":85}],131:[function(require,module,exports){
+module.exports = function (require, Model, Header, Footer, Style) {
+    var empty = [];
+    return Model.extend(function (wXml, wDoc, mParent) {
+        this.wFirst = mParent.content.length ? mParent.content[mParent.content.length - 1].wLast.nextSibling : mParent.wXml.firstChild;
+        this.wLast = wXml;
+        while (this.wLast.parentNode != mParent.wXml)
+            this.wLast = this.wLast.parentNode;
+        if (this.wLast == wXml)
+            this.wLast = wXml.previousSibling;
+        Model.apply(this, arguments);
+        wDoc.parseContext.section.current = this;
+    }, {
+        type: 'section',
+        _iterate: function (f, visitorFactories) {
+            this._iterateHeaderFooter(visitorFactories, 'header');
+            var current = this.wFirst;
+            do {
+                f(current);
+                current = current == this.wLast ? null : current.nextSibling;
+            } while (current);
+            this._iterateHeaderFooter(visitorFactories, 'footer');
+        },
+        _iterateHeaderFooter: function (visitorFactories, refType) {
+            for (var refs = this.wXml.$(refType + 'Reference'), i = 0, len = refs.length; i < len; i++) {
+                var part = this.wDoc.parseContext.part.current = this.wDoc.getRel(refs[i].attr('r:id'));
+                var model = new (require('./' + refType))(part.documentElement, this.wDoc, this, refs[i].attr('w:type'));
+                model.parse(visitorFactories);
+                this.wDoc.parseContext.part.current = this.wDoc.partMain;
+            }
+        },
+        getDirectStyle: function () {
+            return new Style(this.wXml, this.wDoc, this);
+        }
+    });
+}(require, require('../model'), require('./header'), require('./footer'), require('./style/section'));
+},{"../model":85,"./footer":117,"./header":119,"./style/section":141}],132:[function(require,module,exports){
+module.exports = function (Super, Style, Drawing) {
+    return Super.extend({
+        type: 'shape',
+        getDirectStyle: function () {
+            return new this.constructor.Properties(this.wXml, this.wDoc, this);
+        },
+        _getValidChildren: function () {
+            return this.wXml.$('txbxContent');
+        }
+    }, {
+        Properties: Style.Properties.extend($.extend({}, Drawing.SpProperties.prototype, {
+            _getValidChildren: function (t) {
+                return ((t = this.wXml.$('>style>*')) && t.asArray() || []).concat(this.wXml.$('>spPr>*, >bodyPr>*').asArray());
+            },
+            lnRef: function (x, t) {
+                var o = this.wDoc.getFormatTheme().line(x.attr('idx'));
+                if (o.color == 'phClr')
+                    o.color = this.solidFill(x);
+                return o;
+            },
+            fillRef: function (x, t) {
+                var o = this.wDoc.getFormatTheme().fill(x.attr('idx'));
+                switch (typeof o) {
+                case 'string':
+                    if (o == 'phClr')
+                        o = this.solidFill(x);
+                    break;
+                case 'object':
+                    if (o.color == 'phClr')
+                        o.color = this.solidFill(x);
+                    break;
+                }
+                return o;
+            },
+            fontRef: function (x) {
+                return {
+                    color: this.solidFill(x),
+                    family: this.wDoc.getFormatTheme().font(x.attr('idx'))
+                };
+            },
+            effectRef: function () {
+            },
+            spAutoFit: function () {
+                return true;
+            }
+        }))
+    });
+}(require('../model'), require('./style'), require('./drawing'));
+},{"../model":85,"./drawing":105,"./style":134}],133:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({
+        type: 'softHyphen',
+        getText: function () {
+            return String.fromCharCode(173);
+        }
+    });
+}(require('./text'));
+},{"./text":146}],134:[function(require,module,exports){
+module.exports = function (Model) {
+    var RGB = /([a-fA-F0-9]{2}?){3}?/;
+    return Model.extend(function (wXml, wDoc, mParent) {
+        Model.apply(this, arguments);
+        if (wXml.attr('w:default') == '1')
+            wDoc.style.setDefault(this);
+        this.name = this._val('name');
+        if (this.id = this._attr('w:styleId'))
+            wDoc.style.set(this);
+    }, {
+        getParentStyle: function () {
+            return this.wDoc.style.get(this._val('basedOn'));
+        },
+        isDefault: function () {
+            return this.wXml.attr('w:default') == '1';
+        },
+        getNumId: function () {
+            return -1;
+        },
+        getOutlineLevel: function () {
+            return -1;
+        }
+    }, {
+        Properties: Model.extend({
+            EMPTY: -999,
+            type: null,
+            naming: {},
+            parse: function (visitors) {
+                var values = {};
+                visitors.forEach(function (visitor) {
+                    [
+                        this._getValidChildren(),
+                        this.wXml.attributes
+                    ].forEach(function (children) {
+                        for (var len = children.length, i = 0; i < len; i++) {
+                            var node = children[i], name = node.localName;
+                            if (values[name] == undefined && $.isFunction(this[name]))
+                                values[name] = this[name](node);
+                            values[name] != this.EMPTY && visitor.visit(values[name], this.naming[name] || name, this.type);
+                        }
+                    }, this);
+                }, this);
+            },
+            _getValidChildren: function () {
+                return this.wXml.childNodes;
+            },
+            basedOn: function (x) {
+                return x.attr('w:val');
+            },
+            asColor: function (v) {
+                if (!v || v.length == 0 || v == 'auto')
+                    return '#000000';
+                v = v.split(' ')[0];
+                return v.charAt(0) == '#' ? v : RGB.test(v) ? '#' + v : v;
+            },
+            shadeColor: function (color, percent) {
+                if (!RGB.test(color))
+                    return color;
+                var R = parseInt(color.substring(1, 3), 16);
+                var G = parseInt(color.substring(3, 5), 16);
+                var B = parseInt(color.substring(5, 7), 16);
+                R = parseInt(R * (100 + percent) / 100);
+                G = parseInt(G * (100 + percent) / 100);
+                B = parseInt(B * (100 + percent) / 100);
+                R = R < 255 ? R : 255;
+                G = G < 255 ? G : 255;
+                B = B < 255 ? B : 255;
+                var RR = R.toString(16).length == 1 ? '0' + R.toString(16) : R.toString(16);
+                var GG = G.toString(16).length == 1 ? '0' + G.toString(16) : G.toString(16);
+                var BB = B.toString(16).length == 1 ? '0' + B.toString(16) : B.toString(16);
+                return '#' + RR + GG + BB;
+            },
+            asObject: function (x, f) {
+                var o = {};
+                for (var i = 0, attrs = x.attributes, len = attrs.length; i < len; i++)
+                    o[attrs[i].localName] = f ? f(attrs[i].value) : attrs[i].value;
+                return o;
+            },
+            asPt: function (x, type) {
+                switch (type) {
+                case 'cm':
+                    return parseInt(x) * 28.3464567 / 360000;
+                default:
+                    return parseInt(x) / 20;
+                }
+            },
+            pt2Px: function (x) {
+                if (typeof x == 'string')
+                    x = parseFloat(x.replace('pt', ''));
+                return Math.floor(x * 96 / 72);
+            }
+        })
+    });
+}(require('../model'));
+},{"../model":85}],135:[function(require,module,exports){
+module.exports = function (Style) {
+    return Style.extend(function (wXml, wDoc, mParent) {
+        Style.apply(this, arguments);
+        wDoc.style.setDefault(this);
+    }, {
+        type: 'style.document',
+        isDefault: function () {
+            return true;
+        }
+    });
+}(require('./paragraph'));
+},{"./paragraph":140}],136:[function(require,module,exports){
+module.exports = function (Style) {
+    return Style.extend({
+        type: 'style.inline',
+        _iterate: function (f, factories, visitors) {
+            var pr = this.wXml.$1('>rPr');
+            pr && new this.constructor.Properties(pr, this.wDoc, this).parse(visitors);
+        }
+    }, {
+        Properties: Style.Properties.extend({
+            type: 'inline',
+            rFonts: function (x) {
+                var v = {}, t;
+                if (t = x.attr('w:ascii'))
+                    v.ascii = t;
+                else if (t = x.attr('w:asciiTheme'))
+                    v.ascii = this.wDoc.getFontTheme().get(t);
+                if (t = x.attr('w:eastAsia'))
+                    v.asia = t;
+                else if (t = x.attr('w:eastAsiaTheme'))
+                    v.asia = this.wDoc.getFontTheme().get(t);
+                return v;
+            },
+            b: function (x) {
+                return {};
+            },
+            sz: function (x) {
+                return parseFloat(x.attr('w:val')) / 2;
+            },
+            color: function (x) {
+                return this.asColor(x.attr('w:val') || this.wDoc.getColorTheme().get(x.attr('w:themeColor')));
+            },
+            i: function (x) {
+                return {};
+            },
+            u: function (x) {
+                return this.asObject(x);
+            },
+            bdr: function (x) {
+                var border = this.asObject(x);
+                border.sz && (border.sz = border.sz / 8);
+                border.color && (border.color = this.asColor(border.color));
+                return border;
+            },
+            lang: function (x) {
+                return x.attr('w:val');
+            },
+            vertAlign: function (x) {
+                return x.attr('w:val');
+            },
+            highlight: function (x) {
+                return this.asColor(x.attr('w:val'));
+            }
+        })
+    });
+}(require('../style'));
+},{"../style":134}],137:[function(require,module,exports){
+module.exports = function (Style, Numbering) {
+    function asStyleId(numId) {
+        return '_list' + numId;
+    }
+    return Style.extend(function (wXml, wDoc, mParent) {
+        Style.apply(this, arguments);
+        this.id = this.name = asStyleId(wXml.attr('w:numId'));
+        this.wDoc.style.set(this);
+    }, {
+        type: 'style.list',
+        getParentStyle: function () {
+            var definition = this.wDoc.style.get(Numbering.asStyleId(this.wXml.$1('abstractNumId').attr('w:val')));
+            if (definition.link) {
+                return this.wDoc.style.get(definition.link).asNumberingStyle().getParentStyle();
+            } else
+                return definition;
+        },
+        getNumId: function () {
+            return this.wXml.attr('w:numId');
+        },
+        hasOverride: function () {
+            return this.wXml.childNodes.length != 1;
+        }
+    }, { asStyleId: asStyleId });
+}(require('../style'), require('./numberingDefinition'));
+},{"../style":134,"./numberingDefinition":139}],138:[function(require,module,exports){
+module.exports = function (Super, List) {
+    return Super.extend(function () {
+        Super.apply(this, arguments);
+    }, {
+        type: 'style.numbering',
+        getNumId: function () {
+            return this.wXml.$1('numId').attr('w:val');
+        },
+        asNumberingStyle: function () {
+            return this.wDoc.style.get(List.asStyleId(this.getNumId()));
+        }
+    });
+}(require('../style'), require('./list'));
+},{"../style":134,"./list":137}],139:[function(require,module,exports){
+module.exports = function (Style, Inline, require) {
+    function asStyleId(absNumId) {
+        return '_numberingDefinition' + absNumId;
+    }
+    return Style.extend(function (wXml) {
+        Style.apply(this, arguments);
+        this.levels = [];
+        this.name = this.id = asStyleId(wXml.attr('w:abstractNumId'));
+        this.wDoc.style.set(this);
+        var link = wXml.$1('numStyleLink');
+        if (link)
+            this.link = link.attr('w:val');
+    }, {
+        type: 'style.numbering.definition',
+        _iterate: function (f, factories, visitors) {
+            for (var i = 0, children = this.wXml.$('lvl'), l = children.length, t; i < l; i++) {
+                this.levels.push(t = new this.constructor.Level(children[i], this.wDoc, this));
+                t.parse(visitors);
+            }
+        },
+        getDefinitionId: function () {
+            return this.wXml.attr('w:abstractNumId');
+        }
+    }, {
+        asStyleId: asStyleId,
+        Level: Style.Properties.extend(function (wXml) {
+            Style.Properties.apply(this, arguments);
+            this.type = wXml.attr('w:ilvl');
+        }, {
+            parse: function (visitors) {
+                Style.Properties.prototype.parse.apply(this, arguments);
+                var t, pr;
+                if (t = this.wXml.$1('>pPr')) {
+                    pr = new (require('./paragraph')).Properties(t, this.wDoc, this);
+                    pr.type = this.type + ' ' + pr.type;
+                    pr.parse(visitors);
+                }
+                if (t = this.wXml.$1('>rPr')) {
+                    pr = new Inline.Properties(t, this.wDoc, this);
+                    pr.type = this.type + ' ' + pr.type;
+                    pr.parse(visitors);
+                }
+            },
+            start: function (x) {
+                return parseInt(x.attr('w:val'));
+            },
+            numFmt: function (x) {
+                return x.attr('w:val');
+            },
+            lvlText: function (x) {
+                return x.attr('w:val');
+            },
+            lvlJc: function (x) {
+                return x.attr('w:val');
+            },
+            lvlPicBulletId: function (x) {
+                return x.attr('w:val');
+            }
+        })
+    });
+}(require('../style'), require('./inline'), require);
+},{"../style":134,"./inline":136,"./paragraph":140}],140:[function(require,module,exports){
+module.exports = function (Style, Inline, Numbering) {
+    return Style.extend({
+        type: 'style.paragraph',
+        getOutlineLevel: function (v) {
+            if ((v = this._val('outlineLvl')) != null)
+                return parseInt(v);
+            if ((v = this.getParentStyle()) != null && v.getOutlineLevel)
+                return v.getOutlineLevel();
+            return -1;
+        },
+        getNumId: function () {
+            if ((v = this._val('numId')) != null)
+                return v;
+            if ((v = this.getParentStyle()) != null && v.getNumId)
+                return v.getNumId();
+            return -1;
+        },
+        asNumberingStyle: Numbering.prototype.asNumberingStyle,
+        _iterate: function (f, factories, visitors) {
+            var pr = this.wXml.$1('pPr');
+            pr && new this.constructor.Properties(pr, this.wDoc, this).parse(visitors);
+            (pr = this.wXml.$1('rPr')) && new Inline.Properties(pr, this.wDoc, this).parse(visitors);
+            (pr = this.wXml.$1('numPr')) && new Numbering.Properties(pr, this.wDoc, this).parse(visitors);
+            (pr = this.wXml.$1('framePr')) && new this.constructor.FrameProperties(pr, this.wDoc, this).parse(visitors);
+        }
+    }, {
+        Properties: Style.Properties.extend({
+            type: 'paragraph',
+            jc: function (x) {
+                return x.attr('w:val');
+            },
+            ind: function (x) {
+                return this.asObject(x, this.asPt);
+            },
+            spacing: function (x) {
+                var r = this.asObject(x), o = {};
+                if (!r.beforeAutospacing && r.beforeLines)
+                    o.top = this.asPt(r.beforeLines);
+                else
+                    r.before;
+                o.top = this.asPt(r.before);
+                if (!r.afterAutospacing && r.afterLines)
+                    o.bottom = this.asPt(r.afterLines);
+                else
+                    r.after;
+                o.bottom = this.asPt(r.after);
+                if (!r.line)
+                    return o;
+                switch (x.lineRule) {
+                case 'atLeast':
+                case 'exact':
+                    o.lineHeight = this.asPt(x.line) + 'pt';
+                    break;
+                case 'auto':
+                default:
+                    o.lineHeight = parseInt(r.line) * 100 / 240 + '%';
+                }
+                o.lineRule = x.lineRule;
+                return o;
+            }
+        }),
+        FrameProperties: Style.Properties.extend({ type: 'frame' })
+    });
+}(require('../style'), require('./inline'), require('./numbering'));
+},{"../style":134,"./inline":136,"./numbering":138}],141:[function(require,module,exports){
+module.exports = function (Style) {
+    return Style.Properties.extend({
+        type: 'section',
+        naming: $.extend(Style.Properties.prototype.naming, {
+            pgSz: 'size',
+            pgMar: 'margin'
+        }),
+        pgSz: function (x) {
+            return {
+                width: parseInt(x.attr('w:w')) / 20,
+                height: parseInt(x.attr('w:h') / 20)
+            };
+        },
+        pgMar: function (x) {
+            var value = this.asObject(x, function (v) {
+                    return parseFloat(v) / 20;
+                });
+            if (value.gutter && this.wDoc.getPart('settings').documentElement.$1('gutterAtTop'))
+                value.gutterAtRight = 1;
+            return value;
+        },
+        cols: function (x) {
+            var o = this.asObject(x, parseInt);
+            o.space && (o.space = o.space / 20);
+            return o;
+        }
+    });
+}(require('../style'));
+},{"../style":134}],142:[function(require,module,exports){
+module.exports = function (Style, Paragraph, Inline) {
+    return Style.extend({
+        type: 'style.table',
+        parse: function (factories) {
+            Style.prototype.parse.apply(this, arguments);
+            var TableStyle = this.constructor;
+            for (var styles = this.wXml.$('tblStylePr'), len = styles.length, i = 0; i < len; i++) {
+                var model = new TableStyle(styles[i], this.wDoc, this);
+                model.id = this.id;
+                model.parse(factories);
+            }
+        },
+        _iterate: function (f, factories, visitors) {
+            var pr = null;
+            (pr = this.wXml.$1('>tblPr:not(:empty)')) && new this.constructor.Properties(pr, this.wDoc, this).parse(visitors);
+            (pr = this.wXml.$1('>trPr:not(:empty)')) && new this.constructor.RowProperties(pr, this.wDoc, this).parse(visitors);
+            (pr = this.wXml.$1('>tcPr:not(:empty)')) && new this.constructor.CellProperties(pr, this.wDoc, this).parse(visitors);
+            (pr = this.wXml.$1('>pPr:not(:empty)')) && new Paragraph.Properties(pr, this.wDoc, this).parse(visitors);
+            (pr = this.wXml.$1('>rPr:not(:empty)')) && new Inline.Properties(pr, this.wDoc, this).parse(visitors);
+        },
+        getTarget: function () {
+            return this.wXml.attr('w:type');
+        }
+    }, {
+        Properties: Style.Properties.extend({
+            type: 'table',
+            tblBorders: function (x) {
+                var value = {};
+                for (var borders = x.childNodes, border, i = 0, len = borders.length; i < len; i++) {
+                    border = value[(border = borders[i]).localName] = this.asObject(border);
+                    border.sz && (border.sz = border.sz / 8);
+                    border.color && (border.color = this.asColor(border.color));
+                }
+                return value;
+            },
+            tblCellMar: function (x) {
+                var value = {};
+                for (var borders = x.childNodes, i = 0, len = borders.length, v; i < len; i++)
+                    value[borders[i].localName] = parseInt(borders[i].attr('w:w')) / 20;
+                return value;
+            },
+            tblLook: function (x) {
+                return this.asObject(x, function (x) {
+                    return parseInt(x);
+                });
+            },
+            tblStyleRowBandSize: function (x) {
+                return parseInt(x.attr('w:val'));
+            },
+            tblStyleColBandSize: function (x) {
+                return parseInt(x.attr('w:val'));
+            },
+            tblW: function (x) {
+                return x.attr('w:type') == 'pct' ? parseInt(x.attr('w:w')) * 2 / 100 + '%' : this.asPt(x.attr('w:w')) + 'pt';
+            },
+            tblInd: function (x) {
+                return this.asPt(x.attr('w:w'));
+            }
+        }),
+        RowProperties: Style.Properties.extend({
+            type: 'row',
+            cnfStyle: function (x) {
+                return x.attr('w:val');
+            }
+        }),
+        CellProperties: Style.Properties.extend({
+            type: 'cell',
+            tcBorders: function (x) {
+                var value = {};
+                for (var borders = x.childNodes, border, i = 0, len = borders.length; i < len; i++) {
+                    border = value[(border = borders[i]).localName] = this.asObject(border);
+                    border.sz && (border.sz = border.sz / 8);
+                    border.color && (border.color = this.asColor(border.color));
+                }
+                return value;
+            },
+            shd: function (x) {
+                return this.asColor(x.attr('w:fill'));
+            },
+            cnfStyle: function (x) {
+                return x.attr('w:val');
+            },
+            gridSpan: function (x) {
+                return x.attr('w:val');
+            }
+        })
+    });
+}(require('../style'), require('./paragraph'), require('./inline'));
+},{"../style":134,"./inline":136,"./paragraph":140}],143:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({
+        type: 'symbol',
+        getText: function () {
+            return String.fromCharCode(ParseInt('0x' + this._attr('w:char')));
+        },
+        getFont: function () {
+            return this._attr('w:font');
+        }
+    });
+}(require('./text'));
+},{"./text":146}],144:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({
+        type: 'tab',
+        getText: function () {
+            return String.fromCharCode(9);
+        }
+    });
+}(require('./text'));
+},{"./text":146}],145:[function(require,module,exports){
+module.exports = function (Model, Style) {
+    return Model.extend({
+        type: 'table',
+        getStyleId: function (a) {
+            return this._val('>tblPr>tblStyle');
+        },
+        getNamedStyle: function () {
+            return this.wDoc.style.get(this.getStyleId()) || this.wDoc.style.getDefault(Style.prototype.type);
+        },
+        getDirectStyle: function (pr) {
+            return (pr = this.wXml.$1('>tblPr')) && new Style.Properties(pr, this.wDoc, this);
+        },
+        getColWidth: function () {
+            var widths = [], sum = 0;
+            for (var cols = this.wXml.$('>tblGrid>gridCol'), len = cols.length, i = 0, a; i < len; i++) {
+                widths.push(a = parseInt(cols[i].attr('w:w')));
+                sum += a;
+            }
+            return {
+                sum: sum,
+                cols: widths
+            };
+        },
+        _shouldIgnore: function (wXml) {
+            return wXml.localName == 'tblPr' || wXml.localName == 'tblGrid';
+        }
+    });
+}(require('../model'), require('./style/table'));
+},{"../model":85,"./style/table":142}],146:[function(require,module,exports){
+module.exports = function (Model) {
+    return Model.extend({
+        type: 'text',
+        getText: function () {
+            return this.wXml.textContent;
+        }
+    });
+}(require('../model'));
+},{"../model":85}],147:[function(require,module,exports){
+module.exports = function () {
+    var RGB = /([a-fA-F0-9]{2}?){3}?/;
+    return $.newClass(function (wXml, xMapping) {
+        this.wXml = wXml;
+        this.map = {};
+        for (var i = 0, map = xMapping.attributes, len = map.length, attr; i < len; i++)
+            this.map[(attr = xMapping.attributes[i]).localName] = attr.value;
+    }, {
+        get: function (name, t) {
+            if (name == 'phClr')
+                return name;
+            name = this.map[name] || name;
+            if (t = this.wXml.$1(name)) {
+                switch (t.firstChild.localName) {
+                case 'sysClr':
+                    return '#' + t.firstChild.attr('lastClr');
+                default:
+                    return '#' + t.firstChild.attr('val');
+                }
+            } else
+                return 'black';
+        }
+    });
+}();
+},{}],148:[function(require,module,exports){
+module.exports = function () {
+    return $.newClass(function (wXml, xLang) {
+        this.wXml = wXml;
+        this.xLang = xLang;
+    }, {
+        get: function (name) {
+            switch (name) {
+            case 'minorHAnsi':
+            case 'minorAscii':
+                return this.minorHAnsi || (this.minorHAnsi = this.minorAscii = this.wXml.$1('minorFont>latin').attr('typeface'));
+            case 'majorHAnsi':
+            case 'majorAscii':
+                return this.majorHAnsi || (this.majorHAnsi = this.majorAscii = this.wXml.$1('majorFont>latin').attr('typeface'));
+            case 'majorEastAsia':
+                if (this.majorEastAsia)
+                    return this.majorEastAsia;
+                var t = this.wXml.$1('majorFont>ea').attr('typeface');
+                if (t.length == 0)
+                    t = this.wXml.$1('majorFont>font[script=' + this.xLang.attr('w:eastAsia') + ']');
+                return this.majorEastAsia = t;
+            case 'majorEastAsia':
+                if (this.majorEastAsia)
+                    return this.majorEastAsia;
+                var t = this.wXml.$1('minorFont>ea').attr('typeface');
+                if (t.length == 0)
+                    t = this.wXml.$1('minorFont>font[script=' + this.xLang.attr('w:eastAsia') + ']');
+                return this.majorEastAsia = t;
+            case 'majorBidi':
+                if (this.majorBidi)
+                    return this.majorBidi;
+                var t = this.wXml.$1('majorFont>cs').attr('typeface');
+                if (t.length == 0)
+                    t = this.wXml.$1('majorFont>font[script=' + this.xLang.attr('w:bidi') + ']');
+                return this.majorBidi = t;
+            case 'majorBidi':
+                if (this.majorBidi)
+                    return this.majorBidi;
+                var t = this.wXml.$1('minorFont>cs').attr('typeface');
+                if (t.length == 0)
+                    t = this.wXml.$1('minorFont>font[script=' + this.xLang.attr('w:bidi') + ']');
+                return this.majorBidi = t;
+            }
+        }
+    });
+}();
+},{}],149:[function(require,module,exports){
+module.exports = function (Shape) {
+    var asObject = Shape.Properties.prototype.asObject;
+    return $.newClass(function (wXml, wDoc) {
+        this.wXml = wXml;
+        this.wDoc = wDoc;
+        this._converter = new Shape.Properties(null, wDoc, null);
+        this._line = {};
+        this._fill = {
+            0: {},
+            1000: {}
+        };
+        this._bgFill = {};
+        this._effect = {};
+        this._font = {};
+    }, {
+        line: function (idx, t) {
+            if (t = this._line[idx])
+                return t;
+            return (t = this.wXml.$1('ln:nth-child(' + (parseInt(idx) + 1) + ')')) && (this._line[idx] = this._converter.ln(t));
+        },
+        fill: function (idx, t) {
+            idx = parseInt(idx);
+            if (idx > 1000)
+                return this.bgFill(idx - 1000);
+            if (t = this._fill[idx])
+                return t;
+            return (t = this.wXml.$1('bgFillStyleLst>:nth-child(' + (parseInt(idx) + 1) + ')')) && (this._fill[idx] = this._converter[t.localName](t));
+        },
+        bgFill: function (idx) {
+            if (t = this._bgFill[idx])
+                return t;
+            return (t = this.wXml.$1('bgFillStyleLst>:nth-child(' + (parseInt(idx) + 1) + ')')) && (this._bgFill[idx] = this._converter[t.localName](t));
+        },
+        effect: function (idx) {
+            if (t = this._effect[idx])
+                return t;
+            return (t = this.wXml.$1('effectStyle:nth-child(' + (parseInt(idx) + 1) + ')>effectLst')) && (this._effect[idx] = this._converter.effectLst(t));
+        },
+        font: function (idx) {
+            if (t = this._font[idx])
+                return t;
+            return (t = this.wXml.$1('fontScheme>' + idx + 'Font>latin')) && (this._effect[idx] = t.attr('typeface'));
+        }
+    });
+}(require('../model/shape'));
+},{"../model/shape":132}],150:[function(require,module,exports){
+module.exports = function () {
+    return $.newClass(function (wXml, wDoc) {
+        this.wXml = wXml;
+        this.wDoc = wDoc;
+    }, {
+        type: null,
+        parse: function (visitFactories) {
+        }
+    });
+}();
+},{}],151:[function(require,module,exports){
+module.exports = function () {
+    return $.newClass(function (name, doc) {
+        this.name = name;
+        this.doc = doc;
+        this.documentElement = doc.parts[name] && $.parseXML(doc.parts[name].asText()).documentElement;
+        this.rels = {};
+        var folder = '', relName = '_rels/' + name + '.rels', i = name.lastIndexOf('/');
+        if (i !== -1) {
+            folder = name.substring(0, i);
+            relName = folder + '/_rels/' + name.substring(i + 1) + '.rels';
+        }
+        if (!doc.parts[relName])
+            return;
+        $.parseXML(doc.parts[relName].asText()).documentElement.childNodes.asArray().forEach(function (a, i) {
+            this.rels[a.getAttribute('Id')] = {
+                type: a.getAttribute('Type').split('/').pop(),
+                target: (folder ? folder + '/' : '') + a.getAttribute('Target')
+            };
+        }, this);
+    }, {
+        getRel: function (id) {
+            var rel = this.rels[id];
+            switch (rel.type) {
+            case 'image':
+                return this.doc.getImagePart(rel.target);
+            default:
+                return this.doc.getPart(rel.target);
+            }
+        }
+    }, {
+        is: function (o) {
+            return o && o.getRel;
+        }
+    });
+}();
+},{}],152:[function(require,module,exports){
+module.exports = function (Deferred, Extend) {
+    var $ = {
+            Deferred: Deferred,
+            parseXML: DOMParser ? function (x) {
+                return new DOMParser().parseFromString(x, 'text/xml');
+            } : function (x) {
+                var xmlDoc = new ActiveXObject('Microsoft.XMLDOM');
+                xmlDoc.async = 'false';
+                xmlDoc.loadXML(x);
+                return xmlDoc;
+            },
+            extend: Extend,
+            isFunction: function (a) {
+                return typeof a === 'function';
+            },
+            isArray: function (a) {
+                return Array.isArray(a);
+            },
+            each: function (a, f, ctx) {
+                if (Array.isArray(a)) {
+                    a.forEach(f, ctx);
+                } else if (typeof a === 'object') {
+                    Object.keys(a).forEach(function (k) {
+                        f.call(ctx, k, a[k]);
+                    });
+                }
+            },
+            map: function (a, f, ctx) {
+                return a.map(f, ctx);
+            }
+        };
+    $.extend($, {
+        toArray: function (args) {
+            var a = [];
+            for (var i = 0, len = args.length; i < len; i++)
+                a.push(args[i]);
+            return a;
+        },
+        newClass: function (constructor, properties, classProperties) {
+            if (!$.isFunction(constructor)) {
+                classProperties = properties;
+                properties = constructor;
+                constructor = function () {
+                };
+            }
+            $.extend(constructor.prototype, properties || {});
+            classProperties && $.extend(constructor, classProperties);
+            constructor.extend = extend;
+            return constructor;
+        }
+    });
+    function extend(constructor, properties, classProperties) {
+        var me = this;
+        if (!$.isFunction(constructor)) {
+            classProperties = properties;
+            properties = constructor;
+            constructor = function () {
+                me.apply(this, arguments);
+            };
+        }
+        $.extend(constructor.prototype, me.prototype, properties || {});
+        $.extend(constructor, me, classProperties || {});
+        return constructor;
+    }
+    var scopable = true, directChildSelector = /((^|,)\s*>)/, id = 'sxxx';
+    try {
+        document.body.querySelector(':scope>div');
+    } catch (e) {
+        scopable = false;
+    }
+    $.extend(Node.prototype, {
+        $: function (selector) {
+            if (!directChildSelector.test(selector))
+                return this.querySelectorAll(selector);
+            else if (scopable)
+                return this.querySelectorAll(selector.split(',').map(function (a) {
+                    return a.trim().charAt(0) == '>' ? ':scope' + a : a;
+                }).join(','));
+            else if (this.id) {
+                return this.querySelectorAll(selector.split(',').map(function (a) {
+                    return (a = a.trim()).charAt(0) == '>' ? a.substring(1) : a;
+                }, this).join(','));
+            } else {
+                this.id = id;
+                var nodes = this.querySelectorAll(selector.split(',').map(function (a) {
+                        return (a = a.trim()).charAt(0) == '>' ? a.substring(1) : a;
+                    }, this).join(','));
+                delete this.id;
+                return nodes;
+            }
+        },
+        $1: function (selector) {
+            if (!directChildSelector.test(selector))
+                return this.querySelector(selector);
+            else if (scopable)
+                return this.querySelector(selector.split(',').map(function (a) {
+                    return (a = a.trim()).charAt(0) == '>' ? ':scope' + a : a;
+                }).join(','));
+            else if (this.id) {
+                return this.querySelector(selector.split(',').map(function (a) {
+                    return (a = a.trim()).charAt(0) == '>' ? a.substring(1) : a;
+                }, this).join(','));
+            } else {
+                this.id = id;
+                var nodes = this.querySelector(selector.split(',').map(function (a) {
+                        return (a = a.trim()).charAt(0) == '>' ? a.substring(1) : a;
+                    }, this).join(','));
+                delete this.id;
+                return nodes;
+            }
+        },
+        attr: function (name, value) {
+            if (arguments.length == 1) {
+                var attr = this.attributes.getNamedItem(name);
+                return attr ? attr.value : undefined;
+            } else if (value == null)
+                this.removeAttribute(name);
+            else
+                this.setAttribute(name, value);
+        },
+        remove: Node.prototype.remove || function () {
+            this.parentNode.removeChild(this);
+        },
+        uptrim: function () {
+            var parent = this.parentNode;
+            this.remove();
+            if (parent.childNodes.length == 0)
+                parent.uptrim();
+        }
+    });
+    $.extend(NodeList.prototype, {
+        asArray: function (o) {
+            o = o || [];
+            for (var i = 0, len = this.length; i < len; i++)
+                o.push(this[i]);
+            return o;
+        },
+        forEach: Array.prototype.forEach,
+        map: Array.prototype.map
+    });
+    return window.$ = $;
+}(require('apromise'), require('extend'));
+},{"apromise":40,"extend":41}],153:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],154:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"dup":43}],155:[function(require,module,exports){
+arguments[4][44][0].apply(exports,arguments)
+},{"./flate":160,"dup":44}],156:[function(require,module,exports){
+arguments[4][45][0].apply(exports,arguments)
+},{"./utils":173,"dup":45}],157:[function(require,module,exports){
+arguments[4][46][0].apply(exports,arguments)
+},{"./utils":173,"dup":46}],158:[function(require,module,exports){
+arguments[4][47][0].apply(exports,arguments)
+},{"dup":47}],159:[function(require,module,exports){
+arguments[4][48][0].apply(exports,arguments)
+},{"./utils":173,"dup":48}],160:[function(require,module,exports){
+arguments[4][49][0].apply(exports,arguments)
+},{"dup":49,"pako":176}],161:[function(require,module,exports){
+arguments[4][50][0].apply(exports,arguments)
+},{"./base64":153,"./compressions":155,"./defaults":158,"./deprecatedPublicUtils":159,"./load":162,"./object":165,"./support":169,"dup":50}],162:[function(require,module,exports){
+arguments[4][51][0].apply(exports,arguments)
+},{"./base64":153,"./zipEntries":174,"dup":51}],163:[function(require,module,exports){
+arguments[4][52][0].apply(exports,arguments)
+},{"buffer":1,"dup":52}],164:[function(require,module,exports){
+arguments[4][53][0].apply(exports,arguments)
+},{"./uint8ArrayReader":170,"dup":53}],165:[function(require,module,exports){
+arguments[4][54][0].apply(exports,arguments)
+},{"./base64":153,"./compressedObject":154,"./compressions":155,"./crc32":156,"./defaults":158,"./nodeBuffer":163,"./signature":166,"./stringWriter":168,"./support":169,"./uint8ArrayWriter":171,"./utf8":172,"./utils":173,"dup":54}],166:[function(require,module,exports){
+arguments[4][55][0].apply(exports,arguments)
+},{"dup":55}],167:[function(require,module,exports){
+arguments[4][56][0].apply(exports,arguments)
+},{"./dataReader":157,"./utils":173,"dup":56}],168:[function(require,module,exports){
+arguments[4][57][0].apply(exports,arguments)
+},{"./utils":173,"dup":57}],169:[function(require,module,exports){
+arguments[4][58][0].apply(exports,arguments)
+},{"buffer":1,"dup":58}],170:[function(require,module,exports){
+arguments[4][59][0].apply(exports,arguments)
+},{"./dataReader":157,"dup":59}],171:[function(require,module,exports){
+arguments[4][60][0].apply(exports,arguments)
+},{"./utils":173,"dup":60}],172:[function(require,module,exports){
+arguments[4][61][0].apply(exports,arguments)
+},{"./nodeBuffer":163,"./support":169,"./utils":173,"dup":61}],173:[function(require,module,exports){
+arguments[4][62][0].apply(exports,arguments)
+},{"./compressions":155,"./nodeBuffer":163,"./support":169,"dup":62}],174:[function(require,module,exports){
+arguments[4][63][0].apply(exports,arguments)
+},{"./nodeBufferReader":164,"./object":165,"./signature":166,"./stringReader":167,"./support":169,"./uint8ArrayReader":170,"./utils":173,"./zipEntry":175,"dup":63}],175:[function(require,module,exports){
+arguments[4][64][0].apply(exports,arguments)
+},{"./compressedObject":154,"./object":165,"./stringReader":167,"./utils":173,"dup":64}],176:[function(require,module,exports){
+arguments[4][65][0].apply(exports,arguments)
+},{"./lib/deflate":177,"./lib/inflate":178,"./lib/utils/common":179,"./lib/zlib/constants":182,"dup":65}],177:[function(require,module,exports){
+arguments[4][66][0].apply(exports,arguments)
+},{"./utils/common":179,"./utils/strings":180,"./zlib/deflate.js":184,"./zlib/messages":189,"./zlib/zstream":191,"dup":66}],178:[function(require,module,exports){
+arguments[4][67][0].apply(exports,arguments)
+},{"./utils/common":179,"./utils/strings":180,"./zlib/constants":182,"./zlib/gzheader":185,"./zlib/inflate.js":187,"./zlib/messages":189,"./zlib/zstream":191,"dup":67}],179:[function(require,module,exports){
+arguments[4][68][0].apply(exports,arguments)
+},{"dup":68}],180:[function(require,module,exports){
+arguments[4][69][0].apply(exports,arguments)
+},{"./common":179,"dup":69}],181:[function(require,module,exports){
+arguments[4][70][0].apply(exports,arguments)
+},{"dup":70}],182:[function(require,module,exports){
+arguments[4][71][0].apply(exports,arguments)
+},{"dup":71}],183:[function(require,module,exports){
+arguments[4][72][0].apply(exports,arguments)
+},{"dup":72}],184:[function(require,module,exports){
+arguments[4][73][0].apply(exports,arguments)
+},{"../utils/common":179,"./adler32":181,"./crc32":183,"./messages":189,"./trees":190,"dup":73}],185:[function(require,module,exports){
+arguments[4][74][0].apply(exports,arguments)
+},{"dup":74}],186:[function(require,module,exports){
+arguments[4][75][0].apply(exports,arguments)
+},{"dup":75}],187:[function(require,module,exports){
+arguments[4][76][0].apply(exports,arguments)
+},{"../utils/common":179,"./adler32":181,"./crc32":183,"./inffast":186,"./inftrees":188,"dup":76}],188:[function(require,module,exports){
+arguments[4][77][0].apply(exports,arguments)
+},{"../utils/common":179,"dup":77}],189:[function(require,module,exports){
+arguments[4][78][0].apply(exports,arguments)
+},{"dup":78}],190:[function(require,module,exports){
+arguments[4][79][0].apply(exports,arguments)
+},{"../utils/common":179,"dup":79}],191:[function(require,module,exports){
+arguments[4][80][0].apply(exports,arguments)
+},{"dup":80}],"docx2html":[function(require,module,exports){
 var Docx4JS=require("docx4js"),
 	Converters=require("./converter/docx/html/factory"),
 	factory=Docx4JS.createVisitorFactory(Converters);
-module.exports=function(file){
+	
+function docx2html(file){
 	return Docx4JS.load(file)
 	.then(function(docx){
 		return docx.parse(factory)
 	})
-};
+}
+
+docx2html.parser=Docx4JS
+docx2html.converters=Converters
+
+module.exports=docx2html
 },{"./converter/docx/html/factory":11,"docx4js":39}]},{},[]);

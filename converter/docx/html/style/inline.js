@@ -49,4 +49,4 @@ define(['./converter'], function(Style){
 			}
 		})
 	})
-})
+})

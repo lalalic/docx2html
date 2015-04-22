@@ -257,7 +257,7 @@ define(['./drawing'], function(Super){
 				default:
 					this.style.position='absolute'
 					//avoid empty paragraph
-					this.parent.content.parentNode.appendChild(this.doc.createTextNode("\u00a0"))
+					//this.parent.content.parentNode.appendChild(this.doc.createTextNode("\u00a0"))
 				}
 			},
 			behindDoc: function(x){

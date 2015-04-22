@@ -23,7 +23,7 @@ define(['../converter'], function(Converter){
 			},
 			_border: function(border){
 				if(border.val=='none' || border.val=='nil')
-					return 'none'
+					return '0'
 				else
 					return (border.sz<1 && border.sz>0 ? 1 : border.sz)+'pt '+(Lines.indexOf(border.val.toLowerCase())!=-1 ? border.val : 'solid')+' '+(border.color||'')
 			},

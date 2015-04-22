@@ -72,7 +72,7 @@ the priority of css rule should be aligned with word
 				x && (this.style.marginLeft=x+'pt')
 			},
 			tblW: function(x){
-				x && (this.style.width=x)
+				x && x!='auto' && (this.style.width=x)
 			}
 		}),
 		RowProperties: Style.Properties.extend(function(style,parent){
@@ -126,7 +126,7 @@ the priority of css rule should be aligned with word
 				this.style.backgroundColor=x
 			},
 			gridSpan: function(x){
-				this.parent.content.attr('colspan',x)
+				this.parent.content.setAttribute('colspan',x)
 			}
 		}),
 		TableStyles:'firstRow,lastRow,firstCol,lastCol,band1Vert,band2Vert,band1Horz,band2Horz,neCell,nwCell,seCell,swCell'.split(',')

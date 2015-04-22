@@ -1,4 +1,10 @@
 define(['./field'],function(Super){
+function uptrim(el){
+	var parent=el.parentNode
+	parent.removeChild(el)
+	if(parent.childNodes.length==0)
+		uptrim(parent)
+}
 	return Super.extend({
 		wordType: 'field.hyperlink',
 		convert: function(elEnd){
@@ -7,7 +13,7 @@ define(['./field'],function(Super){
 			elEnd.id=this.doc.uid()
 			
 			var current=this.elStart, parent=current.parentNode
-			while(!parent.$1('#'+elEnd.id)){
+			while(!parent.querySelector('#'+elEnd.id)){
 				current=parent
 				parent=current.parentNode
 			}
@@ -15,8 +21,8 @@ define(['./field'],function(Super){
 			while(a.nextSibling)
 				a.appendChild(a.nextSibling)
 			
-			this.elStart.uptrim()
-			elEnd.uptrim()
+			uptrim(this.elStart)
+			uptrim(elEnd)
 		}
 	})
 })

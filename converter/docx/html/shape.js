@@ -5,7 +5,7 @@ define(['./converter', './style/converter'],function(Super, Style){
 	function asStyle(x){
 		var a=[]
 		for(var i in x)
-			a.push(i.replace(AZ,r)+':'+x[i])
+			!$.isFunction(x[i]) && a.push(i.replace(AZ,r)+':'+x[i])
 		return a.join(';')
 	}
 	
@@ -27,11 +27,10 @@ define(['./converter', './style/converter'],function(Super, Style){
 				
 				var svg='<svg xmlns="http://www.w3.org/2000/svg">'
 						+(grad ? '<defs>'+grad+'</defs>' : '')
-						+this.path+' style="'+asStyle(pathStyle)+'" /></svg>',
-					svgImage='url(data:image/svg+xml;base64,'+btoa(svg)+')';
+						+this.path+' style="'+asStyle(pathStyle)+'" /></svg>';
+				var svgImage='url('+this.doc.asImageURL(svg)+')';
 				el.style.background=svgImage+(bgImage ? ' ,'+bgImage :'')
 				el.style.backgroundSize='100% 100%'+(bgImage ? ',100% 100%' :'')
-				//el.innerHTML=svg
 			}
 		}
 	},{
@@ -127,7 +126,16 @@ define(['./converter', './style/converter'],function(Super, Style){
 			fillRef: function(x){
 				if(this.style.backgroundImage)
 					return
-				this.pathStyle.fill= typeof(x)=='string' ? x : x.color
+				
+				if(typeof(x.path)!='undefined')
+					return this.gradFill(x);
+					
+				if(typeof(x)=='string')
+					this.pathStyle.fill=x
+				else if(typeof(x.color)!='undefined')
+					this.pathStyle.fill=x.color
+				else
+					return;
 				this.pathStyle.fillOpacity=1
 			},
 			fontRef: function(x){

@@ -1,11 +1,11 @@
 var Docx4JS=require("docx4js"),
 	Converters=require("./converter/docx/html/factory"),
-	factory=Docx4JS.createVisitorFactory(Converters);
+	defaultFactory=Docx4JS.createVisitorFactory(Converters);
 	
-function docx2html(file){
+function docx2html(file, opt){
 	return Docx4JS.load(file)
 	.then(function(docx){
-		return docx.parse(factory)
+		return docx.parse(opt ? Docx4JS.createVisitorFactory(Converters,opt) : defaultFactory)
 	})
 }
 

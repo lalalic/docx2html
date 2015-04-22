@@ -1,4 +1,7 @@
 define(['./converter','jszip'],function(Converter, JSZip){
+	function isNodejs(){
+		return typeof(__dirname)!=='undefined'
+	}
 	return Converter.extend({
 		wordType:'document',
 		tag:'html',
@@ -46,213 +49,230 @@ define(['./converter','jszip'],function(Converter, JSZip){
 			style=this.doc.createStyle('a')
 			style.textDecoration='none'
 		},
+		/**
+		* opt: {
+		* 	template: function(style, html, props){ return (html)},
+			extendScript: "http://a.com/a.js"
+			}
+		*/
 		toString: function(opt){
-			if(opt && typeof opt.template!="undefined" && $.isFunction(opt.template))
-				return opt.template(this.doc.getStyleText(), this.content.outerHTML, this.props)
-			var html=['<!doctype html>\r\n<html><head><meta key="generator" value="docx2html"><title>'+(this.props.name||'')+'</title><style>']
-			html.push(this.doc.getStyleText())
-			html.push('</style></head><body>')
-			html.push(this.content.outerHTML)
-			opt && opt.extendScript && html.push('<script src="'+opt.extendScript+'"></script>')
-			html.push('</body><html>')
-			return html.join('\r\n')
+			return this.doc.toString(opt,this.props)
 		},
 		release: function(){
 			this.doc.release()
 		},
 		asZip: function(opt){
-			var zip=new JSZip(),hasImage=false;
-			var f=zip.folder('images')
-			Object.keys(this.doc.images).forEach(function(a){
-				hasImage=true
-				f.file(a.split('/').pop(),this[a])
-			},this.doc.images)
-			zip.file('props.json',JSON.stringify(this.props));
-			zip.file('main.html',hasImage ? this.toString(opt).replace(this.doc.Proto_Blob,'images') : this.toString())
-			return zip
+			return this.doc.asZip(opt,this.props)
 		},
 		download:function(opt){
-			var a=document.createElement("a")
-			document.body.appendChild(a)
-			a.href=URL.createObjectURL(this.asZip(opt).generate({type:'blob'}))
-			a.download=(this.props.name||"document")+'.zip'
-			a.click()
-			URL.revokeObjectURL(a.href)
-			document.body.removeChild(a)
+			return this.doc.download(opt, this.props)
 		},
+		/**
+		* opt=extend(toString.opt,{
+			saveImage: function(arrayBuffer, doc.props): promise(url) {},
+			saveHtml: function(){}
+		})
+		*/
 		save : function(opt){
-			var hasImage=false, images={}, me=this;
-			return $.Deferred.when((this.doc.images && Object.keys(this.doc.images)||[]).map(function(a){
-				hasImage=true
-				return opt.saveImage(this[a],me.props)
-					.then(function(url){return images[a]=url})
-			},this.doc.images))
-			.then(function(){
-				var html=me.toString(opt);
-				if(hasImage)
-					html=html.replace(this.doc.Reg_Proto_Blob,function(a,id){return images[a]});
-				return opt.saveHtml(html,me.props)
-			})
+			return this.doc.save(opt, this.props)
 		}
-		
 	},{
 		create: function(opt){
-			var mdl='jsdom-nogyp'
-			return this._browser(typeof(document)=='undefined' ? require(mdl).jsdom() : document)
-			//return typeof(window)=='undefined' ? this._node(opt,require(mdl).jsdom()) : this._browser(opt,document)
-		},
-		_node: function(opt){
-			var mdl='jsdom-nogyp',
-				jsdom=require(mdl).jsdom,
-				doc=jsdom(),
-				uid=0;
-			$.extend(doc,{
-				id:'A',
-				section:null,
-				uid: function(){return this.id+(uid++)},
-				createStyleSheet: function(){
-					if(this.stylesheet)
-						return this.stylesheet;
-					var elStyle=this.createElement('style')
-					this.body.appendChild(elStyle,null);
-					return this.stylesheet=elStyle.sheet
-				},
-				getStyleText: function(){
-					var styles=[]
-					for(var i=0, rules=this.stylesheet.rules, len=rules.length;i<len;i++)
-						styles.push(rules[i].cssText)
-					return styles.join('\r\n')
-				}
-			});
-			
-			return (function mixin(doc){
-				var Proto_Blob="image://"//(function(a){a=URL.createObjectURL(new Blob()).split('/');a.pop();return a.join('/')})();
-				var stylesheet=doc.createStyleSheet()
-				var relStyles={}, styles={}
-				var blobs=[];
-				return $.extend(doc,{
-					Proto_Blob:Proto_Blob,
-					Reg_Proto_Blob:new RegExp(Proto_Blob+"/([\\w\\d-]+)","gi"),
-					createStyle: function(selector){
-						if(styles[selector])
-							return styles[selector]
-						var rules=stylesheet.rules,len=rules.length
-						stylesheet.addRule(selector.split(',').map(function(a){
-								return a.trim()[0]=='#' ? a : '#'+this.id+' '+a
-							}.bind(this)).join(','),'{}')
-						return  styles[selector]=stylesheet.rules.item(len).style
-					},
-					stylePath:function(a, parent){
-						if(parent)
-							return relStyles[a]=parent
-						var paths=[a],parent=a
-						while(parent=relStyles[parent])
-							paths.unshift(parent)
-						return paths.join(' ')
-					},
-					release:function(){
-						Object.keys(this.images).forEach(function(b){
-							//
-						})
-						delete this.images
-						delete relStyles
-						delete styles
-						delete this.section
-					},
-					asImageURL: function(arrayBuffer){
-						return "image://"
-					}
-				})
-			})(doc);
-		},
-		_browser: function(document,opt){			
-			var doc=(function browserDoc(){
-				var uid=0;
-				var root=$.extend(document.createElement('div'),{
-					id : "A",
-					section: null,
-					createElement: document.createElement.bind(document),
-					createTextNode: document.createTextNode.bind(document),
-					createStyleSheet: function(){
-						if(this.stylesheet)
-							return this.stylesheet;
-						var elStyle=this.createElement('style')
-						this.body.appendChild(elStyle,null);
-						return this.stylesheet=elStyle.sheet
-					},
-					getStyleText: function(){
-						var styles=[]
-						for(var i=0, rules=this.stylesheet.cssRules, len=rules.length;i<len;i++)
-							styles.push(rules[i].cssText)
-						return styles.join('\r\n')
-					},
-					uid: function(){return this.id+(uid++)}
-				});
-				(opt && opt.container || document.body).appendChild(root);
-				root.body=root
-				return root
-			})(opt);
-			
-			return (function mixin(doc){
-				var Proto_Blob=(function(a){
-						if(typeof(URL)!='undefined'){
-							a=URL.createObjectURL(new Blob()).split('/');
-							a.pop();
-							return a.join('/')
-						}else{
-							return "image://"
+			var selfConverter=this
+			return (function(opt,document){
+				var doc=(function browserDoc(){
+					var uid=0;
+					var root=$.extend(document.createElement('div'),{
+						id : "A",
+						section: null,
+						createElement: document.createElement.bind(document),
+						createTextNode: document.createTextNode.bind(document),
+						createStyleSheet: function(){
+							if(this.stylesheet)
+								return this.stylesheet;
+							var elStyle=this.createElement('style')
+							this.body.appendChild(elStyle,null);
+							return this.stylesheet=elStyle.sheet
+						},
+						getStyleText: function(){
+							var styles=[]
+							for(var i=0, rules=this.stylesheet.cssRules, len=rules.length;i<len;i++)
+								styles.push(rules[i].cssText)
+							return styles.join('\r\n')
+						},
+						uid: function(){return this.id+(uid++)},
+						toString: function(opt, props){
+							if(opt && typeof opt.template!="undefined" && $.isFunction(opt.template))
+								return opt.template(this.getStyleText(), this.outerHTML, props)
+							var html=['<!doctype html>\r\n<html><head><meta charset=utf-8><meta key="generator" value="docx2html"><title>'+(props.name||'')+'</title><style>']
+							html.push(this.getStyleText())
+							html.push('</style></head><body>')
+							html.push(this.outerHTML)
+							opt && opt.extendScript && html.push('<script src="'+opt.extendScript+'"></script>')
+							html.push('</body><html>')
+							return html.join('\r\n')
 						}
-					})();
-				var stylesheet=doc.createStyleSheet()
-				var relStyles={}, styles={}
-				var blobs=[];
-				return $.extend(doc,{
-					Proto_Blob:Proto_Blob,
-					Reg_Proto_Blob:new RegExp(Proto_Blob+"/([\\w\\d-]+)","gi"),
-					createStyle: function(selector){
-						if(styles[selector])
-							return styles[selector]
-						var rules=stylesheet.cssRules,len=rules.length
-						stylesheet.insertRule(selector.split(',').map(function(a){
-								return a.trim()[0]=='#' ? a : '#'+this.id+' '+a
-							}.bind(this)).join(',')+'{}',len)
+					});
+					(opt && opt.container || document.body).appendChild(root);
+					root.body=root
+					return root
+				})(opt);
+				
+				return (function mixin(doc){
+					var stylesheet=doc.createStyleSheet()
+					var relStyles={}, styles={}
+					
+					return $.extend(selfConverter[isNodejs() ? 'nodefy' : 'browserify'](doc,stylesheet, opt),{
+						createStyle: function(selector){
+							if(styles[selector])
+								return styles[selector]
+							var rules=stylesheet.cssRules,len=rules.length
+							stylesheet.insertRule(selector.split(',').map(function(a){
+									return a.trim()[0]=='#' ? a : '#'+this.id+' '+a
+								}.bind(this)).join(',')+'{}',len)
+							return  styles[selector]=stylesheet.cssRules[len].style
+						},
+						stylePath:function(a, parent){
+							if(parent)
+								return relStyles[a]=parent
+							var paths=[a],parent=a
+							while(parent=relStyles[parent])
+								paths.unshift(parent)
+							return paths.join(' ')
+						},
+						release:function(){
+							delete relStyles
+							delete styles
+							delete this.section
+							this._release()
+						}
+					})
+				})(doc)
+			})(opt, (function(){
+					if(!isNodejs()) 
+						return document
+					
+					var mdl='jsdom-nogyp',
+						jsdom=require(mdl),
+						createDocument=jsdom.jsdom;
 						
-						/**
-						 *  node: cssom.CSSStyleDeclaration doesn't support style.border=0, so replace with CSSStyle
-						 *  jsdom should fix it
-						 */
-						if(typeof(__dirname)!=='undefined'){
-							var mdl='jsdom-nogyp'
-							var CSSStyleDeclaration=require(mdl+'/lib/jsdom/level2/style').dom.level2.core.CSSStyleDeclaration
-							stylesheet.cssRules[len].style=new CSSStyleDeclaration()
-						}	
-						
-						return  styles[selector]=stylesheet.cssRules[len].style
-					},
-					stylePath:function(a, parent){
-						if(parent)
-							return relStyles[a]=parent
-						var paths=[a],parent=a
-						while(parent=relStyles[parent])
-							paths.unshift(parent)
-						return paths.join(' ')
-					},
-					release:function(){
-						Object.keys(this.images).forEach(function(b){
-							URL.revokeObjectURL(b)
-						})
-						delete this.images
-						delete relStyles
-						delete styles
-						delete this.section
-					},
-					asImageURL: function(arrayBuffer){
-						var url=URL.createObjectURL(new Blob([arrayBuffer],{type:"image/*"}));
-						(this.images || (this.images={}))[url]=arrayBuffer
-						return url
+					var CSSStyleDeclaration=require(mdl+'/lib/jsdom/level2/style').dom.level2.core.CSSStyleDeclaration
+					function prop(name){
+						return {
+							set:function(x){
+								this._setProperty(name, x)
+							},
+							get: function(){
+								return this.getPropertyValue(name)
+							},
+							enumerable: true,
+							configurable: true
+						}
 					}
-				})
-			})(doc);
+					
+					var props={}
+					',-webkit-,-moz-'.split(',').forEach(function(browser){
+						'count,gap,rule'.split(',').forEach(function(a){
+							props[browser+'column-'+a]=prop(browser+'column-'+a)
+						})
+					})
+					props.backgroundColor=prop('background-color')
+					props.color=prop('color')
+					props.width=prop('width')
+					props.height=prop('height')
+					
+					Object.defineProperties(CSSStyleDeclaration.prototype,props)
+
+					global.btoa=function(s){
+						return new Buffer(s).toString('base64')
+					}	
+					return createDocument()
+				})())
+		},
+		nodefy: function(doc, stylesheet, opt){
+			var mdl='jsdom-nogyp',
+				CSSStyleDeclaration=require(mdl+'/lib/jsdom/level2/style').dom.level2.core.CSSStyleDeclaration;
+			
+			var _insertRule=stylesheet.insertRule
+			stylesheet.insertRule=function(css, len){
+				_insertRule.apply(this,arguments)
+				this.cssRules[len].style=new CSSStyleDeclaration()
+			}
+			
+			return $.extend(doc,{
+				_release: function(){},
+				asImageURL: function(buffer){
+					if(opt && typeof(opt.asImageURL)!='undefined')
+						return opt.asImageURL(buffer)
+					return "image://notsupport"
+				},
+				asZip: function(){
+					throw new Error('not support')
+				},
+				download: function(){
+					throw new Error('not support')
+				},
+				save: function(){
+					throw new Error('not support')
+				}
+			})
+		},
+		browserify: function(doc, stylesheet, opt){
+			var Proto_Blob=(function(a){
+					a=URL.createObjectURL(new Blob()).split('/');
+					a.pop();
+					return a.join('/')
+				})(),
+				Reg_Proto_Blob=new RegExp(Proto_Blob+"/([\\w\\d-]+)","gi");
+			
+			return $.extend(doc,{
+				asZip: function(opt, props){
+					var zip=new JSZip(),hasImage=false;
+					var f=zip.folder('images')
+					Object.keys(this.images).forEach(function(a){
+						hasImage=true
+						f.file(a.split('/').pop(),this[a])
+					},this.images)
+					zip.file('props.json',JSON.stringify(props));
+					zip.file('main.html',hasImage ? this.toString(opt).replace(Proto_Blob,'images') : this.toString())
+					return zip
+				},
+				download:function(opt, props){
+					var a=document.createElement("a")
+					document.body.appendChild(a)
+					a.href=URL.createObjectURL(this.asZip(opt,props).generate({type:'blob'}))
+					a.download=(props.name||"document")+'.zip'
+					a.click()
+					URL.revokeObjectURL(a.href)
+					document.body.removeChild(a)
+				},
+				save : function(opt, props){
+					var hasImage=false, images={}, me=this;
+					return $.Deferred.when((this.images && Object.keys(this.images)||[]).map(function(a){
+						hasImage=true
+						return opt.saveImage(this[a],props)
+							.then(function(url){return images[a]=url})
+					},this.images))
+					.then(function(){
+						var html=me.toString(opt, props);
+						if(hasImage)
+							html=html.replace(Reg_Proto_Blob,function(a,id){return images[a]});
+						return opt.saveHtml(html, props)
+					})
+				},
+				images:{},
+				asImageURL: function(arrayBuffer){
+					var url=URL.createObjectURL(new Blob([arrayBuffer],{type:"image/"+(typeof(arrayBuffer.type)!='undefined' ? arrayBuffer.type : '*')}));
+					this.images[url]=arrayBuffer
+					return url
+				},
+				_release: function(){
+					Object.keys(this.images).forEach(function(b){
+						URL.revokeObjectURL(b)
+					})
+					delete this.images
+				}
+			})
 		}
 	})
 })

@@ -91,7 +91,7 @@
 			baseUrl: "../",
 			paths: {
 				"jszip": "node_modules/docx4js/test/jszip.min",
-				"tool": "node_modules/docx4js/parser/tool-browser",
+				"tool": "node_modules/docx4js/parser/tool",
 				"apromise": "node_modules/docx4js/node_modules/apromise/index"
 			},
 			deps:['tool']
@@ -103,9 +103,10 @@
 				Docx4JS.load(input.files[0])
 					.then(function(doc){
 						input.value=""
-						var a=document.$1('div');
+						var a=document.querySelector('div');
 						a && a.parentNode.removeChild(a);
-						doc.parse(Docx4JS.createVisitorFactory(Converters))
+						var converted=doc.parse(Docx4JS.createVisitorFactory(Converters))
+						document.querySelector('textarea').value=converted.toString()
 					})
 			})
 		}
@@ -113,5 +114,6 @@
 </head>
 <body>
 	<input type="file" style="position:absolute;top:0" onchange="test(this)">
+	<textarea id="text"></textarea>
 </body>
 </html>
