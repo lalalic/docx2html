@@ -262,7 +262,8 @@ define(['./converter','jszip'],function(Converter, JSZip){
 				},
 				images:{},
 				asImageURL: function(arrayBuffer){
-					var url=URL.createObjectURL(new Blob([arrayBuffer],{type:"image/"+(typeof(arrayBuffer.type)!='undefined' ? arrayBuffer.type : '*')}));
+					var url=URL.createObjectURL(new Blob([arrayBuffer],
+						{type:"image/"+(typeof(arrayBuffer)=='string' ? 'svg+xml' : '*')}));
 					this.images[url]=arrayBuffer
 					return url
 				},
