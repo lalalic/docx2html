@@ -14,10 +14,15 @@ define(['./converter', './style/converter'],function(Super, Style){
 		tag:'div',
 		convertStyle: function(el){
 			el.style.position='relative'
-			var pathStyle={stroke:'black', strokeWidth:2, fillOpacity:0}
+			el.style.overflow='hidden'
+			
+			
+			var pathStyle={stroke:'black', strokeWidth:2, fillOpacity:0},
+				bgStyle=this.makeBackgroundStyle();
 			Super.prototype.convertStyle.apply(this,arguments)
-			var style=this.wordModel.getDirectStyle();
-			style && style.parse([new this.constructor.Properties(el.style,this, pathStyle)])
+			var style=this.wordModel.getDirectStyle(),
+				propConverter=new this.constructor.Properties(el.style,this, pathStyle, bgStyle);
+			style && style.parse([propConverter])
 			if(this.path){
 				if(el.style.background)
 					pathStyle.fillOpacity=0
@@ -29,20 +34,38 @@ define(['./converter', './style/converter'],function(Super, Style){
 						+(grad ? '<defs>'+grad+'</defs>' : '')
 						+this.path+' style="'+asStyle(pathStyle)+'" /></svg>';
 				var svgImage='url('+this.doc.asImageURL(svg)+')';
-				el.style.background=svgImage+(bgImage ? ' ,'+bgImage :'')
-				el.style.backgroundSize='100% 100%'+(bgImage ? ',100% 100%' :'')
+				bgStyle.backgroundImage=svgImage
+				bgStyle.backgroundSize='100% 100%'
 			}
+		},
+		makeBackgroundStyle: function(){
+			//make background el to hold svg background
+			var id='shape'+this.doc.uid()
+			this.content.setAttribute('id',id)
+			var style=this.doc.createStyle('#'+id+'::before')
+			style.content='""'
+			style.zIndex=-1
+			style.position='absolute'
+			style.width='100%'
+			style.height='100%'
+			style.left=0
+			style.top=0
+			return style
 		}
 	},{
-		Properties: Style.Properties.extend(function(style,parent, pathStyle){
+		Properties: Style.Properties.extend(function(style,parent, pathStyle, bgStyle){
 			Style.Properties.apply(this,arguments)
 			this.pathStyle=pathStyle
+			this.bgStyle=bgStyle
 		},{
 			xfrm: function(x){
 				this.style.width=x.width+'pt'
 				this.style.height=x.height+'pt'
 				x.x && (this.style.left=x.x+'pt')
 				x.y && (this.style.top=x.y+'pt')
+				
+				x.rotation && this.styless('transform','rotate('+x.rotation+'deg)')
+				
 				this.world=x
 			},
 			ln: function(x){
@@ -165,6 +188,33 @@ define(['./converter', './style/converter'],function(Super, Style){
 			},
 			spAutoFit: function(){
 				this.style.height='auto'
+			},
+			lIns: function(x){
+				this.style.paddingLeft=x+'pt'
+			},
+			tIns: function(x){
+				this.style.paddingTop=x+'pt'
+			},
+			rIns: function(x){
+				this.style.paddingRight=x+'pt'
+			},
+			bIns: function(x){
+				this.style.paddingBottom=x+'pt'
+			},
+			anchor: function(x){
+				this.style.display='table-cell'
+				this.style.verticalAlign=x
+			},
+			vert: function(x){
+				this.style.height=this.world.width+'pt'
+				this.style.width=this.world.height+'pt'
+				var delta=(this.world.width-this.world.height)/2
+								
+				this.bgStyle.height=this.world.height+'pt'
+				this.bgStyle.width=this.world.width+'pt'
+				this.styless('transform','translate(-'+delta+'pt,'+delta+'pt) rotate(-'+x+'deg) ', this.bgStyle)
+
+				this.styless('transform','translate('+delta+'pt,-'+delta+'pt) rotate('+(x+this.world.rotation||0)+'deg)')
 			}
 		})
 	})

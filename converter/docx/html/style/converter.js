@@ -46,10 +46,10 @@ define(['../converter'], function(Converter){
 			upperFirst: function(type){
 				return type[0].toUpperCase() + type.slice(1)
 			},
-			styless: function(name,value){
+			styless: function(name,value, style){
 				browsers.forEach(function(a){
-					this.style[a+name]=value
-				}.bind(this))
+					this[a+name]=value
+				}.bind(style||this.style))
 			},
 			lineStyle: function(x){
 				if(!x)
