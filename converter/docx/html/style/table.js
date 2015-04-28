@@ -1,4 +1,4 @@
-define(['./converter','./paragraph','./inline'], function(Style, Paragraph, Inline){
+define(['./converter','./paragraph','./inline','../p'], function(Style, Paragraph, Inline, P){
 /*
 the priority of css rule should be aligned with word
 */
@@ -20,7 +20,7 @@ the priority of css rule should be aligned with word
 			case 'inline'://0012
 				return this[category]=new Inline.Properties(this.doc.createStyle(selector+' span'))
 			case 'paragraph'://0012
-				return this[category]=new Paragraph.Properties(this.doc.createStyle(selector+' p'))
+				return this[category]=new Paragraph.Properties(this.doc.createStyle(selector+' '+P.P))
 			case 'cell'://0011
 				return this[category]=new this.constructor.CellProperties(this.doc.createStyle(selector),this)
 			}

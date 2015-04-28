@@ -14,8 +14,8 @@ define([],function(){
 				return this.convert.apply(this,arguments)
 		},
 		convert: function(){
-			if(this.tag){
-				this.content=this.doc.createElement($.isFunction(this.tag) ? this.tag() : this.tag)
+			this.content=this.createElement()
+			if(this.content){
 				if(this.content.tagName.toUpperCase()=='DIV'){
 					/*
 					* illegal structure: <p>..<div/>...</p>
@@ -28,7 +28,19 @@ define([],function(){
 					this.parent.content.appendChild(this.content)
 			}else
 				this.content=this.parent && this.parent.content || null
+				
 			this.convertStyle(this.content)
+		},
+		createElement: function(){
+			switch(typeof(this.tag)){
+			case 'string':
+				return this.doc.createElement(this.tag)
+			case 'function':
+				var el=this.tag()
+				return this.doc.createElement(el)
+			default:
+				return null
+			}
 		},
 		convertStyle: function(el, a){
 			this.wordModel.getStyleId 

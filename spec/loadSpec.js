@@ -110,6 +110,11 @@ describe("character features",function(){
 	should("word/columns.docx", function(doc){
 	
 	})
+	
+	should("word/shape/textbox.docx", function(doc){
+	
+	})
+
 	should("word/shape/group.docx", function(doc){
 	
 	})

@@ -1,4 +1,4 @@
-define(['./converter','jszip'],function(Converter, JSZip){
+define(['./converter','jszip','./p'],function(Converter, JSZip, P){
 	function isNodejs(){
 		return typeof(__dirname)!=='undefined'
 	}
@@ -34,13 +34,14 @@ define(['./converter','jszip'],function(Converter, JSZip){
 			style.position='relative'
 			style.zIndex=0
 			
-			style=this.doc.createStyle('p:empty')
+			style=this.doc.createStyle(P.P+':empty:before')
+			style.content='""'
 			style.display='inline-block'
 			
 			style=this.doc.createStyle('ul')
 			style.listStyle="none"
 			
-			style=this.doc.createStyle('ul>li>p')
+			style=this.doc.createStyle('ul>li>'+P.P)
 			style.position='relative'
 			
 			style=this.doc.createStyle('ul .marker')
@@ -113,6 +114,7 @@ define(['./converter','jszip'],function(Converter, JSZip){
 							return html.join('\r\n')
 						}
 					});
+					
 					(opt && opt.container || document.body).appendChild(root);
 					root.body=root
 					return root
@@ -175,7 +177,11 @@ define(['./converter','jszip'],function(Converter, JSZip){
 						'count,gap,rule'.split(',').forEach(function(a){
 							props[browser+'column-'+a]=prop(browser+'column-'+a)
 						})
+						'transform'.split(',').forEach(function(a){
+							props[browser+a]=prop(browser+a)
+						})
 					})
+					
 					props.backgroundColor=prop('background-color')
 					props.color=prop('color')
 					props.width=prop('width')
