@@ -13,10 +13,9 @@ define(['./converter', './style/converter'],function(Super, Style){
 		wordType:'shape',
 		tag:'div',
 		convertStyle: function(el){
-			el.style.position='relative'
+			el.style.position='absolute'
 			el.style.overflow='hidden'
-			
-			
+
 			var pathStyle={stroke:'black', strokeWidth:2, fillOpacity:0},
 				bgStyle=this.makeBackgroundStyle();
 			Super.prototype.convertStyle.apply(this,arguments)

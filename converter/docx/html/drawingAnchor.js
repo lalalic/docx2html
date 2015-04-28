@@ -8,16 +8,16 @@ define(['./drawing'], function(Super){
 			var style=this.style, t;
 			switch(x.align){
 			case 'left':
-				if((t=asNum(this.style.width)-asNum(this.doc.section.style.paddingLeft))>=0)
+				if((t=this.world.width-asNum(this.doc.section.style.paddingLeft))>=0)
 					style.left=0
 				else
 					style.left=-t+'pt'
 				break
 			case 'center':
-				style.left=(asNum(this.doc.section.style.width)-asNum(this.style.width))/2+'pt'
+				style.left=(asNum(this.doc.section.style.width)-this.world.width)/2+'pt'
 				break
 			case 'right': 
-				if((t=asNum(this.style.width)-asNum(this.doc.section.style.paddingRight))>=0)
+				if((t=this.world.width-asNum(this.doc.section.style.paddingRight))>=0)
 					style.right=0
 				else
 					style.right=-t+'pt'
@@ -41,7 +41,7 @@ define(['./drawing'], function(Super){
 				this.style.left=sect.paddingLeft
 				break
 			case 'center':
-				this.style.left=(asNum(sect.width)-asNum(sect.paddingRight)+asNum(sect.paddingLeft)-asNum(this.style.width))/2+'pt'
+				this.style.left=(asNum(sect.width)-asNum(sect.paddingRight)+asNum(sect.paddingLeft)-this.world.width)/2+'pt'
 				break
 			case 'outside': 
 			case 'right': 
@@ -53,73 +53,26 @@ define(['./drawing'], function(Super){
 			}
 		},
 		column: function(x){
-			return PositionH['margin'].call(this,x)
+			Super.addClass(this.parent.content,'warning warning-positionH-column')
+			PositionH.margin.call(this,x)
 		},
 		character: function(x){
-			return PositionH['margin'].call(this,x)
+			Super.addClass(this.parent.content,'unsupported unsupported-positionH-character')
 		},
 		leftMargin:function(x){
-			switch(x.align){
-			case 'left': 
-				this.style.left=0
-				break
-			case 'center': 
-				this.style.left=(asNum(this.doc.section.style.paddingLeft)-asNum(this.style.width))/2+'pt'
-				break
-			case 'right':
-				this.style.left=asNum(this.doc.section.style.paddingLeft)-asNum(this.style.width)+'pt'
-				break
-			default:
-				this.style.left=x.posOffset+'pt'	
-				break	
-			}
+			Super.addClass(this.parent.content,'unsupported unsupported-positionH-leftMargin')
 		},
 		rightMargin:function(x){
-			var sect=this.doc.section.style
-			switch(x.align){
-			case 'left': 
-				this.style.right=asNum(sect.paddingRight)-asNum(this.style.width)+'pt'
-				break
-			case 'center': 
-				this.style.right=(asNum(sect.paddingRight)-asNum(this.style.width))/2+'pt'
-				break
-			case 'right':
-				this.style.right=0
-				break
-			default:
-				this.style.left=asNum(sect.width)-asNum(sect.paddingRight)+x.posOffset+'pt'
-				break	
-			}
+			Super.addClass(this.parent.content,'unsupported unsupported-positionH-rightMargin')
 		},
 		insideMargin:function(x){
-			return PositionH['leftMargin'].call(this,x)
+			Super.addClass(this.parent.content,'unsupported unsupported-positionH-insideMargin')
 		},
 		outsideMargin:function(x){
-			return PositionH['rightMargin'].call(this,x)
+			Super.addClass(this.parent.content,'unsupported unsupported-positionH-outsideMargin')
 		}
 	},
 	PositionV={
-		margin: function(x){
-			var style=this.style,sect=this.doc.section.style
-			switch(x.align){
-			case 'top':
-				style.top=sect.paddingTop
-			break
-			case 'center':
-				style.top=(asNum(sect.minHeight)-asNum(sect.paddingBottom)+asNum(sect.paddingTop)-asNum(style.height))/2+'pt'
-			break
-			case 'bottom':
-				style.bottom=sect.paddingBottom
-			break
-			case 'outside':
-			break
-			case 'inside':
-			break
-			default:
-				style.top=asNum(sect.paddingTop)+x.posOffset+'pt'
-			break
-			}
-		},
 		page: function(x){
 			var style=this.style, sect=this.doc.section.style;
 			switch(x.align){
@@ -130,99 +83,51 @@ define(['./drawing'], function(Super){
 				style.bottom=0
 				break
 			case 'center':
-				style.top=(asNum(sect.minHeight)-asNum(style.width))/2+'pt'
-				break
 			case 'outside':
-				break
 			case 'inside':
+				Super.addClass(this.parent.content,'unsupported unsupported-positionV-page-'+x.align)
 			break
 			default:
 				style.top=x.posOffset+'pt'
 			break
 			}
 		},
-		line: function(x){
+		margin: function(x){
+			var style=this.style,sect=this.doc.section.style
 			switch(x.align){
 			case 'top':
-			break
-			case 'center':
+				style.top=sect.paddingTop
 			break
 			case 'bottom':
+				style.bottom=sect.paddingBottom
 			break
+			case 'center':
 			case 'outside':
-			break
 			case 'inside':
+				Super.addClass(this.parent.content,'unsupported unsupported-positionV-margin-'+x.align)
 			break
 			default:
+				style.top=asNum(sect.paddingTop)+x.posOffset+'pt'
 			break
 			}
+		},
+		line: function(x){
+			Super.addClass(this.parent.content,'unsupported unsupported-positionV-line')
 		},
 		topMargin: function(x){
-			switch(x.align){
-			case 'top':
-			break
-			case 'center':
-			break
-			case 'bottom':
-			break
-			case 'outside':
-			break
-			case 'inside':
-			break
-			default:
-			break
-			}
+			Super.addClass(this.parent.content,'unsupported unsupported-positionV-topMargin')
 		},
 		bottomMargin: function(x){
-			switch(x.align){
-			case 'top':
-			break
-			case 'center':
-			break
-			case 'bottom':
-			break
-			case 'outside':
-			break
-			case 'inside':
-			break
-			default:
-			break
-			}
+			Super.addClass(this.parent.content,'unsupported unsupported-positionV-bottomMargin')
 		},
 		insideMargin: function(x){
-			switch(x.align){
-			case 'top':
-			break
-			case 'center':
-			break
-			case 'bottom':
-			break
-			case 'outside':
-			break
-			case 'inside':
-			break
-			default:
-			break
-			}
+			Super.addClass(this.parent.content,'unsupported unsupported-positionV-insideMargin')
 		},
 		outsideMargin: function(x){
-			switch(x.align){
-			case 'top':
-			break
-			case 'center':
-			break
-			case 'bottom':
-			break
-			case 'outside':
-			break
-			case 'inside':
-			break
-			default:
-			break
-			}
+			Super.addClass(this.parent.content,'unsupported unsupported-positionV-outsideMargin')
 		},
 		paragraph: function(x){//only offset
-			
+			Super.addClass(this.parent.content,'unsupported unsupported-positionV-paragraph')
 		}
 	};
 	
@@ -231,6 +136,7 @@ define(['./drawing'], function(Super){
 		tag:'div',
 		convertStyle: function(el){
 			el.style.display='inline-block'
+			el.style.position='relative'
 			Super.prototype.convertStyle.apply(this,arguments)
 		}
 	},{//only support absolute page offset
@@ -249,10 +155,8 @@ define(['./drawing'], function(Super){
 				case 'tight':
 				case 'through':
 				case 'square':
-					this.style.float='left'
-					break
 				case 'topAndBottom':
-					this.style.clear='both'
+					Super.addClass(this.parent.content,'unsupported unsupported-wrap-'+x)
 					break
 				default:
 					this.style.position='absolute'

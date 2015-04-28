@@ -7,6 +7,11 @@ define(['./converter','./style/converter'], function(Super, Style){
 		}
 	},{
 		Properties: Style.Properties.extend({
+			extent: function(x){
+				this.world=x
+				this.style.width=x.width+'pt'
+				this.style.height=x.height+'pt'
+			},
 			distL: function(x){
 				x && (this.style.marginLeft=x+'pt')
 			},
