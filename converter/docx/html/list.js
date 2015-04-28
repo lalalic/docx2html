@@ -25,7 +25,7 @@ define(['./p'], function(Super){
 			}
 			var li=this.doc.createElement('li')
 			ul.appendChild(li)
-			li.appendChild(this.content=this.doc.createElement(this.tag))
+			li.appendChild(this.content=this.createElement())
 			var marker=this.doc.createElement('span')
 			Super.addClass(marker, 'marker')
 			this.content.appendChild(marker)//as marker

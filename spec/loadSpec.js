@@ -19,7 +19,7 @@ describe("character features",function(){
 	})
 	
 	function should(docx, expects){
-		//if(docx=='word/models.docx')
+		//if(docx=='fs.docx')
 		it(docx, function(done){
 			docx2Html(testDir+docx, {asImageURL:function(buffer){
 					var path=__dirname+"/images/"
@@ -119,7 +119,7 @@ describe("character features",function(){
 	
 	})
 	
-	should("word/shape/inlineDrawing.docx", function(doc){
+	should("word/shape/inline group.docx", function(doc){
 	
 	})
 	
@@ -131,15 +131,11 @@ describe("character features",function(){
 	
 	})
 	
-	should("word/shape/rotate.docx", function(doc){
-	
-	})
-	
 	should("word/shape/wrap.docx", function(doc){
 	
 	})
 	
-	should("word/shape/positionV - Paragraph.docx", function(doc){
+	should("word/shape/rotate.docx", function(doc){
 	
 	})
 })

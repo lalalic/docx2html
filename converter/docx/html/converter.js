@@ -16,16 +16,7 @@ define([],function(){
 		convert: function(){
 			this.content=this.createElement()
 			if(this.content){
-				if(this.content.tagName.toUpperCase()=='DIV'){
-					/*
-					* illegal structure: <p>..<div/>...</p>
-					*/
-					var container=this.parent.content
-					while(container && divContainers.indexOf(container.tagName.toUpperCase())==-1)
-						container=container.parentNode;
-					container.appendChild(this.content)
-				}else
-					this.parent.content.appendChild(this.content)
+				this.parent.content.appendChild(this.content)
 			}else
 				this.content=this.parent && this.parent.content || null
 				

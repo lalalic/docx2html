@@ -1,4 +1,4 @@
-define(['./converter','./inline','./paragraph', '../p'], function(Style, Inline, Paragraph, P){
+define(['./converter','./inline','./paragraph'], function(Style, Inline, Paragraph){
 	var ListStyleType={lowerLetter:'lower-latin',upperLetter:'upper-latin',lowerRoman:'lower-roman',upperRoman:'upper-roman'}
 	var cssID=Style.asCssID
 	return Style.extend(function(){
@@ -23,13 +23,13 @@ define(['./converter','./inline','./paragraph', '../p'], function(Style, Inline,
 				
 			switch(type){
 			case 'inline':
-				style.inline=new Inline.Properties(this.doc.createStyle(levelSelector+'>li>'+P.P+'>.marker:before'))
+				style.inline=new Inline.Properties(this.doc.createStyle(levelSelector+'>li>p>.marker:before'))
 				break
 			case 'paragraph':
-				style.paragraph=new this.constructor.Pr(this.doc.createStyle(levelSelector+'>li>'+P.P), this, levelSelector)
+				style.paragraph=new this.constructor.Pr(this.doc.createStyle(levelSelector+'>li>p'), this, levelSelector)
 				break
 			case 'list':
-				style.list=new this.constructor.Properties(this.doc.createStyle(levelSelector+'>li>'+P.P+'>.marker:before'), this, levelSelector, cssID(this.wordModel.id)+'_'+level, level);
+				style.list=new this.constructor.Properties(this.doc.createStyle(levelSelector+'>li>p>.marker:before'), this, levelSelector, cssID(this.wordModel.id)+'_'+level, level);
 				break
 			}
 			return style[type]
@@ -45,7 +45,7 @@ define(['./converter','./inline','./paragraph', '../p'], function(Style, Inline,
 				delete x.hanging
 				Paragraph.Properties.prototype.ind.call(this,x)
 				x.hanging=hanging
-				x.hanging && (this.doc.createStyle(this.levelSelector+'>li>'+P.P+'>.marker').left=-x.hanging+'pt')
+				x.hanging && (this.doc.createStyle(this.levelSelector+'>li>p>.marker').left=-x.hanging+'pt')
 			}
 		}),
 		Properties:Style.Properties.extend(function(style, parent, levelSelector, counter, level){
