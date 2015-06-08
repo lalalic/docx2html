@@ -1,6 +1,6 @@
 define(['./converter','jszip'],function(Converter, JSZip){
 	function isNodejs(){
-		return typeof(__dirname)!=='undefined'
+		return typeof(window)=='undefined'
 	}
 	return Converter.extend({
 		wordType:'document',
@@ -15,44 +15,44 @@ define(['./converter','jszip'],function(Converter, JSZip){
 				paddingTop='20px'
 				overflow='auto'
 			}
-			
+
 			var style=this.doc.createStyle('*')
 			style.margin='0'
 			style.border='0'
 			style.padding='0'
 			style.boxSizing='border-box'
-			
+
 			style=this.doc.createStyle('table')
 			style.width='100%'
 			style.borderCollapse='collapse'
 			style.wordBreak='break-word'
-			
+
 			style=this.doc.createStyle('section')
 			style.margin='auto'
 			style.backgroundColor='white'
 			style.color='black'
 			style.position='relative'
 			style.zIndex=0
-			
+
 			style=this.doc.createStyle('p:empty:before')
 			style.content='""'
 			style.display='inline-block'
-			
+
 			style=this.doc.createStyle('ul')
 			style.listStyle="none"
-			
+
 			style=this.doc.createStyle('ul>li>p')
 			style.position='relative'
-			
+
 			style=this.doc.createStyle('ul .marker')
 			style.position='absolute'
-			
+
 			style=this.doc.createStyle('a')
 			style.textDecoration='none'
-			
+
 			style=this.doc.createStyle('.unsupported')
 			style.outline="2px red solid"
-			
+
 			style=this.doc.createStyle('.warning')
 			style.outline="1px yellow solid"
 		},
@@ -123,7 +123,7 @@ define(['./converter','jszip'],function(Converter, JSZip){
 							var divs=this.querySelectorAll('p>div, span>div')
 							if(divs.length==0)
 								return this.outerHTML
-							
+
 							/**
 							* illegal <p> <div/> </p>
 							* DOM operation directly in onload
@@ -135,19 +135,19 @@ define(['./converter','jszip'],function(Converter, JSZip){
 							for(var i=divs.length-1;i>-1;i--){
 								var div=divs[i],
 									parent=div.parentNode;
-									
+
 								if(!div.id)
 									div.id='_z'+(++uid)
-								
+
 								if(!parent.id)
 									parent.id='_y'+uid
-									
+
 								div.setAttribute('data-parent',parent.id)
 								div.setAttribute('data-index',indexOf(div,parent.childNodes))
-									
+
 								divcontainer.appendChild(divs[i])
 							}
-							
+
 							var html=this.outerHTML+'\n\r<script>('+this._transformer.toString()+')();</script>'
 							this._transformer();
 							return html
@@ -155,7 +155,7 @@ define(['./converter','jszip'],function(Converter, JSZip){
 						_transformer: function(){
 							var a=document.querySelector('#divcontainer')
 							for(var divs=a.childNodes, i=divs.length-1;i>-1;i--){
-								var div=divs[i], 
+								var div=divs[i],
 									parentId=div.getAttribute('data-parent'),
 									index=parseInt(div.getAttribute('data-index')),
 									parent=document.querySelector('#'+parentId);
@@ -164,23 +164,23 @@ define(['./converter','jszip'],function(Converter, JSZip){
 							a.parentNode.removeChild(a)
 						}
 					});
-					
+
 					function indexOf(el, els){
 						for(var i=els.length-1;i>0;i--)
 							if(el==els[i])
 								return i
 						return 0
 					}
-					
+
 					(opt && opt.container || document.body).appendChild(root);
 					root.body=root
 					return root
 				})(opt);
-				
+
 				return (function mixin(doc){
 					var stylesheet=doc.createStyleSheet()
 					var relStyles={}, styles={}
-					
+
 					return $.extend(selfConverter[isNodejs() ? 'nodefy' : 'browserify'](doc,stylesheet, opt),{
 						createStyle: function(selector){
 							if(styles[selector])
@@ -208,15 +208,15 @@ define(['./converter','jszip'],function(Converter, JSZip){
 					})
 				})(doc)
 			})(opt, (function(){
-					if(!isNodejs()) 
+					if(!isNodejs())
 						return document
 					else if(typeof(this.createDocument)!='undefined')
 						return this.createDocument()
-					
+
 					var mdl='jsdom-nogyp',
 						jsdom=require(mdl),
 						createDocument=jsdom.jsdom;
-						
+
 					var CSSStyleDeclaration=require(mdl+'/lib/jsdom/level2/style').dom.level2.core.CSSStyleDeclaration
 					function prop(name){
 						return {
@@ -230,7 +230,7 @@ define(['./converter','jszip'],function(Converter, JSZip){
 							configurable: true
 						}
 					}
-					
+
 					var props={}
 					',-webkit-,-moz-'.split(',').forEach(function(browser){
 						'count,gap,rule'.split(',').forEach(function(a){
@@ -240,18 +240,18 @@ define(['./converter','jszip'],function(Converter, JSZip){
 							props[browser+a]=prop(browser+a)
 						})
 					})
-					
+
 					props.backgroundColor=prop('background-color')
 					props.color=prop('color')
 					props.width=prop('width')
 					props.height=prop('height')
-					
+
 					Object.defineProperties(CSSStyleDeclaration.prototype,props)
 
 					global.btoa=function(s){
 						return new Buffer(s).toString('base64')
-					}	
-					
+					}
+
 					this.createDocument=createDocument
 					return createDocument()
 				})())
@@ -259,14 +259,14 @@ define(['./converter','jszip'],function(Converter, JSZip){
 		nodefy: function(doc, stylesheet, opt){
 			var mdl='jsdom-nogyp',
 				CSSStyleDeclaration=require(mdl+'/lib/jsdom/level2/style').dom.level2.core.CSSStyleDeclaration;
-			
-			
+
+
 			var _insertRule=stylesheet.insertRule
 			stylesheet.insertRule=function(css, len){
 				_insertRule.apply(this,arguments)
 				this.cssRules[len].style=new CSSStyleDeclaration()
 			}
-			
+
 			return $.extend(doc,{
 				_release: function(){},
 				asImageURL: function(buffer){
@@ -292,7 +292,7 @@ define(['./converter','jszip'],function(Converter, JSZip){
 					return a.join('/')
 				})(),
 				Reg_Proto_Blob=new RegExp(Proto_Blob+"/([\\w\\d-]+)","gi");
-			
+
 			return $.extend(doc,{
 				asZip: function(opt, props){
 					var zip=new JSZip(),hasImage=false;
