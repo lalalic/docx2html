@@ -1,14 +1,11 @@
 import Converter from './converter'
 import JSZip from 'jszip'
 
-
-function isNodejs(){
-	return $.isNode
-}
+var createDocument, CSSStyleDeclaration
 
 export default class Document extends Converter{
 	get tag(){return 'html'}
-	
+
 	convert(){
 		this.doc=this.constructor.create(this.options)
 		this.content=this.doc
@@ -86,10 +83,10 @@ export default class Document extends Converter{
 	save (opt){
 		return this.doc.save(opt, this.props)
 	}
-	 
+
 	static create(opt){
 		var selfConverter=this
-		return (function(opt,document){
+		return (function(document){
 			var doc=(function browserDoc(){
 				var uid=0;
 				var root=Object.assign(document.createElement('div'),{
@@ -180,7 +177,7 @@ export default class Document extends Converter{
 				(opt && opt.container || document.body).appendChild(root);
 				root.body=root
 				return root
-			})(opt);
+			})();
 
 			return (function mixin(doc){
 				var stylesheet=doc.createStyleSheet()
@@ -210,70 +207,13 @@ export default class Document extends Converter{
 					}
 				})
 			})(doc)
-		})(opt, (function(){
-				if(!$.isNode)
-					return document
-				else if(typeof(this.createDocument)!='undefined')
-					return this.createDocument()
-
-				var mdl='jsdom-nogyp',
-					jsdom=require(mdl),
-					createDocument=jsdom.jsdom;
-
-				var CSSStyleDeclaration=require(mdl+'/lib/jsdom/level2/style').dom.level2.core.CSSStyleDeclaration
-				function prop(name){
-					return {
-						set(x){
-							this._setProperty(name, x)
-						},
-						get(){
-							return this.getPropertyValue(name)
-						},
-						enumerable: true,
-						configurable: true
-					}
-				}
-
-				var props={}
-				',-webkit-,-moz-'.split(',').forEach(function(browser){
-					'count,gap,rule'.split(',').forEach(function(a){
-						props[browser+'column-'+a]=prop(browser+'column-'+a)
-					})
-					'transform'.split(',').forEach(function(a){
-						props[browser+a]=prop(browser+a)
-					})
-				})
-
-				props.backgroundColor=prop('background-color')
-				props.color=prop('color')
-				props.width=prop('width')
-				props.height=prop('height')
-
-				Object.defineProperties(CSSStyleDeclaration.prototype,props)
-
-				global.btoa=function(s){
-					return new Buffer(s).toString('base64')
-				}
-
-				this.createDocument=createDocument
-				return createDocument()
-			})())
+		})($.isNode ? createDocument() : document)
 	}
-	
+
 	static nodefy(doc, stylesheet, opt){
-		var mdl='jsdom-nogyp',
-			CSSStyleDeclaration=require(mdl+'/lib/jsdom/level2/style').dom.level2.core.CSSStyleDeclaration;
-
-
-		var _insertRule=stylesheet.insertRule
-		stylesheet.insertRule=function(css, len){
-			_insertRule.apply(this,arguments)
-			this.cssRules[len].style=new CSSStyleDeclaration()
-		}
-
-		return $.extend(doc,{
+		return Object.assign(doc,{
 			_release(){
-				
+
 			},
 			asImageURL(buffer){
 				if(opt && typeof(opt.asImageURL)!='undefined')
@@ -291,7 +231,7 @@ export default class Document extends Converter{
 			}
 		})
 	}
-	
+
 	static browserify(doc, stylesheet, opt){
 		var Proto_Blob=(function(a){
 				a=URL.createObjectURL(new Blob()).split('/');
@@ -351,3 +291,13 @@ export default class Document extends Converter{
 		})
 	}
 }
+
+(function(isNode, m){
+	if(!isNode)	return;
+
+	createDocument=require(m).jsdom
+	let window=createDocument().defaultView
+
+	global.btoa=window.btoa
+	CSSStyleDeclaration=window.CSSStyleDeclaration
+})($.isNode, "jsdom")
