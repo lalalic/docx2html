@@ -1,4 +1,4 @@
-describe("character features",function(){
+xdescribe("character features",function(){
 	var docx2Html,
 		fs=require('fs'),
 		jsdom=require('jsdom-nogyp').jsdom,
