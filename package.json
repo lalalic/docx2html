@@ -48,8 +48,8 @@
   },
   "scripts": {
     "build": "babel src -d lib --source-maps inline",
-    "dist": "watchify -v -d -r lib:docx2html -o dist/docx2html.debug.js -i jquery",
-    "dist.min": "uglifyjs dist/docx2html.debug.js -o dist/docx2html.min.js",
+    "dist": "watchify -v -d -r ./lib:docx2html -o dist/index.js -i jquery",
+    "dist.min": "uglifyjs dist/index.js -o dist/index.min.js",
     "prepublish": "npm run dist.min",
     "test": "jasmine",
     "test.debug": "node --debug-brk .jasmine.js",

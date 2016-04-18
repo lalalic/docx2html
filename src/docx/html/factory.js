@@ -25,7 +25,8 @@ export default {
 	,'field.hyperlink':	require('./field/hyperlink')
 	
 	,'style.document':	require('./style/document')
-	,'style.line':		require('./style/inline')
+	,'style.inline':		require('./style/inline')
+	,'style.list':		require('./style/list')
 	,'style.numbering.definition':	require('./style/list')
 	,'style.numbering': require('./style/numbering')
 	,'style.paragraph':	require('./style/paragraph')

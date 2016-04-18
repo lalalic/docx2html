@@ -55,6 +55,23 @@ export default class Document extends Converter{
 
 		style=this.doc.createStyle('.warning')
 		style.outline="1px yellow solid"
+		this.convertStyle()
+	}
+	
+	convertStyle(){
+		var bgStyle=this.wordModel.getBackgroundStyle()
+		if(!bgStyle)
+			return
+		
+		var style=this.doc.createStyle('section')
+		switch(typeof bgStyle){
+		case 'object':// fill
+			console.warn('not support fill color on document background yet')
+		break
+		default:
+			style.backgroundColor=bgStyle
+		break
+		}
 	}
 	/**
 	* opt: {
