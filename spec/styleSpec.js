@@ -1,3 +1,5 @@
+"use strict"
+
 var newDocx=require("docx4js/spec/newDocx")
 var docx2html=require("../lib")
 
@@ -14,10 +16,10 @@ describe("docx2html style", ()=>{
 	describe("document", ()=>{
 		it("background").pend("newDocx doesn't support to put <w:background> out of w:body")
 	})
-	
+
 	describe("section", ()=>{//ever hacked for jsdom-nogyp, but removed the code for latest jsdom
 		let TargetStyle=require("../lib/docx/html/style/section")
-			
+
 		it("width, height, margin", done=>{
 			spyOn(TargetStyle.prototype, "size").and.callThrough()
 			spyOn(TargetStyle.prototype, "margin").and.callThrough()
@@ -31,7 +33,7 @@ describe("docx2html style", ()=>{
 				done()
 			})
 		})
-		
+
 		it("columns",done=>{
 			spyOn(TargetStyle.prototype, "cols").and.callThrough()
 			docx2html(newDocx(`${wA}
@@ -53,36 +55,36 @@ describe("docx2html style", ()=>{
 			}).catch(e=>{fail(e);done()})
 		})
 	})
-	
-	
+
+
 	describe("structure", ()=>{
 		describe("defalt", ()=>{
 			it("document", done=>{
 				let TargetStyle=require("../lib/docx/html/style/document")
 				spyOn(TargetStyle.prototype,"convert").and.callThrough()
-				
+
 				docx2html(newDocx())
 				.then(html=>{
 					expect(TargetStyle.prototype.convert).toHaveBeenCalled()
 					done()
 				}).catch(failx(done))
 			})
-			
+
 			it("paragraph", done=>{
 				let TargetStyle=require("../lib/docx/html/style/paragraph")
 				spyOn(TargetStyle.prototype,"convert").and.callThrough()
-				
+
 				docx2html(newDocx())
 				.then(html=>{
 					expect(TargetStyle.prototype.convert).toHaveBeenCalled()
 					done()
 				}).catch(failx(done))
 			})
-			
+
 			it("character", done=>{
 				let TargetStyle=require("../lib/docx/html/style/inline")
 				spyOn(TargetStyle.prototype,"convert").and.callThrough()
-				
+
 				docx2html(newDocx({"word/styles.xml":`
 					<w:style w:type="character" w:default="1" w:styleId="DefaultParagraphFont">
 						<w:name w:val="Default Paragraph Font"/>
@@ -95,11 +97,11 @@ describe("docx2html style", ()=>{
 					done()
 				}).catch(failx(done))
 			})
-			
-			fit("table", done=>{
+
+			it("table", done=>{
 				let TargetStyle=require("../lib/docx/html/style/table")
 				spyOn(TargetStyle.prototype,"convert").and.callThrough()
-				
+
 				docx2html(newDocx({"word/styles.xml":`
 						<w:style w:type="table" w:default="1" w:styleId="TableNormal">
 							<w:name w:val="Normal Table"/>
@@ -121,11 +123,11 @@ describe("docx2html style", ()=>{
 					done()
 				}).catch(failx(done))
 			})
-			
-			it("list", done=>{
+
+			xit("list", done=>{
 				let TargetStyle=require("../lib/docx/html/style/list")
 				spyOn(TargetStyle.prototype,"convert").and.callThrough()
-				
+
 				docx2html(newDocx({"word/styles.xml":`
 						<w:style w:type="numbering" w:default="1" w:styleId="NoList">
 							<w:name w:val="No List"/>
@@ -139,28 +141,28 @@ describe("docx2html style", ()=>{
 				}).catch(failx(done))
 			})
 		})
-		
+
 		describe("named style", ()=>{
 			it("paragraph")
-			
+
 			it("character")
-			
+
 			it("table")
-			
+
 			it("list")
 		})
-		
+
 		describe("inherit", ()=>{
 			it("paragraph")
-			
+
 			it("character")
-			
+
 			it("table")
-			
+
 			it("list")
 		})
-		
-		
+
+
 		describe("direct style",()=>{
 			it("paragraph", done=>{
 				let TargetStyle=require("../lib/docx/html/style/paragraph").Properties
@@ -177,7 +179,7 @@ describe("docx2html style", ()=>{
 					done()
 				}).catch(failx(done))
 			})
-			
+
 			it("character", done=>{
 				let TargetStyle=require("../lib/docx/html/style/inline").Properties
 				spyOn(TargetStyle.prototype,"convert").and.callThrough()
@@ -189,7 +191,7 @@ describe("docx2html style", ()=>{
 					done()
 				}).catch(failx(done))
 			})
-			
+
 			it("table", done=>{
 				let TargetStyle=require("../lib/docx/html/style/table").Properties
 				spyOn(TargetStyle.prototype,"convert").and.callThrough()
@@ -236,26 +238,26 @@ describe("docx2html style", ()=>{
 					done()
 				}).catch(failx(done))
 			})
-			
+
 			it("list")
 		})
-		
+
 		describe("mixed named and direct style",()=>{
 			it("paragraph")
-			
+
 			it("character")
-			
+
 			it("table")
-			
+
 			it("list")
 		})
 	})
-	
+
 	describe("table", ()=>{
-		
+
 	})
-	
+
 	describe("shape", ()=>{
-		
+
 	})
 })

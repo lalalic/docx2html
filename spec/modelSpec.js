@@ -4,17 +4,20 @@ var docx2html=require("../lib")
 describe("docx2html",()=>{
 	describe("basic model converting", ()=>{
 		it("document, and section", (done)=>{
-			docx2html(newDocx()).catch(e=>{fail(e);done()})
+			docx2html(newDocx())
 			.then(html=>{
 				expect(html.tag).toBe("html")
 				expect(!!html.content).toBe(true)
 				expect(html.content.querySelectorAll('section').length).toBe(1)
 				done()
-			})
+			}).catch(e=>{fail(e);done()})
 		})
 
-		it("paragraph,span,text",done=>{
-			
+		it("paragraph,span,text", done=>{
+			docx2html(newDocx()).then(html=>{
+				expect(html.content.querySelectorAll('p,span').length).toBe(2)
+				done()
+			}).catch(e=>{fail(e);done()})
 		})
 
 		describe("table",()=>{
