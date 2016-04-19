@@ -56,7 +56,7 @@ export default class Shape extends Converter{
 	}
 }
 
-class Properties extends Style.Properties{
+Shape.Properties=class Properties extends Style.Properties{
 	constructor(style,parent, pathStyle, bgStyle){
 		super(...arguments)
 		this.pathStyle=pathStyle
@@ -222,5 +222,3 @@ class Properties extends Style.Properties{
 		this.styless('transform','translate('+delta+'pt,-'+delta+'pt) rotate('+(x+this.world.rotation||0)+'deg)')
 	}
 }
-
-Shape.Properties=Properties

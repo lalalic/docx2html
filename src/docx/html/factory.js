@@ -26,9 +26,7 @@ export default {
 	
 	,'style.document':	require('./style/document')
 	,'style.inline':		require('./style/inline')
-	,'style.list':		require('./style/list')
 	,'style.numbering.definition':	require('./style/list')
-	,'style.numbering': require('./style/numbering')
 	,'style.paragraph':	require('./style/paragraph')
 	,'style.table':		require('./style/table')
 }
