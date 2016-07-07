@@ -64,10 +64,10 @@ Shape.Properties=class Properties extends Style.Properties{
 	}
 
 	xfrm(x){
-		this.style.width=x.width+'pt'
-		this.style.height=x.height+'pt'
-		x.x && (this.style.left=x.x+'pt')
-		x.y && (this.style.top=x.y+'pt')
+		this.style.width=x.width+'px'
+		this.style.height=x.height+'px'
+		x.x && (this.style.left=x.x+'px')
+		x.y && (this.style.top=x.y+'px')
 		
 		x.rotation && this.styless('transform','rotate('+x.rotation+'deg)')
 		
@@ -75,7 +75,7 @@ Shape.Properties=class Properties extends Style.Properties{
 	}
 	ln(x){
 		x.color && (this.pathStyle.stroke=x.color);
-		x.width!=undefined && (this.pathStyle.strokeWidth=x.width+'pt');
+		x.width!=undefined && (this.pathStyle.strokeWidth=x.width+'px');
 		
 		switch(x.cap){
 		case 'rnd':
@@ -195,28 +195,28 @@ Shape.Properties=class Properties extends Style.Properties{
 		this.style.height='auto'
 	}
 	lIns(x){
-		this.style.paddingLeft=x+'pt'
+		this.style.paddingLeft=x+'px'
 	}
 	tIns(x){
-		this.style.paddingTop=x+'pt'
+		this.style.paddingTop=x+'px'
 	}
 	rIns(x){
-		this.style.paddingRight=x+'pt'
+		this.style.paddingRight=x+'px'
 	}
 	bIns(x){
-		this.style.paddingBottom=x+'pt'
+		this.style.paddingBottom=x+'px'
 	}
 	anchor(x){
 		this.style.display='table-cell'
 		this.style.verticalAlign=x
 	}
 	vert(x){
-		this.style.height=this.world.width+'pt'
-		this.style.width=this.world.height+'pt'
+		this.style.height=this.world.width+'px'
+		this.style.width=this.world.height+'px'
 		var delta=(this.world.width-this.world.height)/2
 						
-		this.bgStyle.height=this.world.height+'pt'
-		this.bgStyle.width=this.world.width+'pt'
+		this.bgStyle.height=this.world.height+'px'
+		this.bgStyle.width=this.world.width+'px'
 		this.styless('transform','translate(-'+delta+'pt,'+delta+'pt) rotate(-'+x+'deg) ', this.bgStyle)
 
 		this.styless('transform','translate('+delta+'pt,-'+delta+'pt) rotate('+(x+this.world.rotation||0)+'deg)')

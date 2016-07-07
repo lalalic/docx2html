@@ -13,20 +13,20 @@ export default class Drawing extends Converter{
 class Properties extends Style.Properties{
 	extent(x){
 		this.world=x
-		this.style.width=x.width+'pt'
-		this.style.height=x.height+'pt'
+		this.style.width=x.width+'px'
+		this.style.height=x.height+'px'
 	}
 	distL(x){
-		x && (this.style.marginLeft=x+'pt')
+		x && (this.style.marginLeft=x+'px')
 	}
 	distT(x){
-		x && (this.style.marginTop=x+'pt')
+		x && (this.style.marginTop=x+'px')
 	}
 	distB(x){
-		x && (this.style.marginBottom=x+'pt')
+		x && (this.style.marginBottom=x+'px')
 	}
 	distR(x){
-		x && (this.style.marginRight=x+'pt')
+		x && (this.style.marginRight=x+'px')
 	}
 }
 

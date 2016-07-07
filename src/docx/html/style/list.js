@@ -52,7 +52,7 @@ List.Pr=class Pr extends Paragraph.Properties{
 		delete x.hanging
 		Paragraph.Properties.prototype.ind.call(this,x)
 		x.hanging=hanging
-		x.hanging && (this.doc.createStyle(this.levelSelector+'>li>p>.marker').left=-x.hanging+'pt')
+		x.hanging && (this.doc.createStyle(this.levelSelector+'>li>p>.marker').left=-x.hanging+'px')
 	}
 }
 		

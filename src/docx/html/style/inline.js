@@ -19,7 +19,7 @@ Inline.Properties=class Properties extends Style.Properties{
 		this.style.fontWeight=700
 	}
 	sz(x){
-		this.style.fontSize=x+'pt'
+		this.style.fontSize=x+'px'
 	}
 	color(x){
 		this.style.color=x

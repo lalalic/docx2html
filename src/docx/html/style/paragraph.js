@@ -28,14 +28,14 @@ Paragraph.Properties=class Properties extends Style.Properties{
 		this.style.textAlign=x
 	}
 	ind(x){
-		x.left && (this.style.marginLeft=x.left+'pt')
-		x.right && (this.style.marginRight=x.right+'pt')
-		x.firstLine && (this.style.textIndent=x.firstLine+'pt')
-		x.hanging && (this.style.textIndent='-'+x.hanging+'pt')
+		x.left && (this.style.marginLeft=x.left+'px')
+		x.right && (this.style.marginRight=x.right+'px')
+		x.firstLine && (this.style.textIndent=x.firstLine+'px')
+		x.hanging && (this.style.textIndent='-'+x.hanging+'px')
 	}
 	spacing(x){
-		x.bottom && (this.style.marginBottom=x.bottom+'pt')
-		x.top && (this.style.marginTop=x.top+'pt')
+		x.bottom && (this.style.marginBottom=x.bottom+'px')
+		x.top && (this.style.marginTop=x.top+'px')
 		
 		x.lineHeight && (this.style.lineHeight=x.lineHeight)
 	}

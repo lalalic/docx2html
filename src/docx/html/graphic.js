@@ -26,15 +26,15 @@ class Properties extends Drawing.Properties{
 	}
 	ln(x){
 		x.color && (this.style.borderColor=x.color);
-		x.width && (this.style.borderWidth=x.width+'pt', this.style.borderStyle='solid');
+		x.width && (this.style.borderWidth=x.width+'px', this.style.borderStyle='solid');
 		x.dash && (this.style.borderStyle=this.lineStyle(x.dash));
-		x.cap==='rnd' && (this.style.borderRadius=x.width*2+'pt')
+		x.cap==='rnd' && (this.style.borderRadius=x.width*2+'px')
 	}
 	xfrm(x){
-		this.style.width=x.width+'pt'
-		this.style.height=x.height+'pt'
-		x.x && (this.style.left=x.x+'pt')
-		x.y && (this.style.top=x.y+'pt')
+		this.style.width=x.width+'px'
+		this.style.height=x.height+'px'
+		x.x && (this.style.left=x.x+'px')
+		x.y && (this.style.top=x.y+'px')
 	}
 }
 

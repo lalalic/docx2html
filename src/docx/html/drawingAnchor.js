@@ -25,16 +25,16 @@ var PositionH={
 			if((t=this.world.width-asNum(this.doc.section.style.paddingLeft))>=0)
 				style.left=0
 			else
-				style.left=-t+'pt'
+				style.left=-t+'px'
 			break
 		case 'center':
-			style.left=(asNum(this.doc.section.style.width)-this.world.width)/2+'pt'
+			style.left=(asNum(this.doc.section.style.width)-this.world.width)/2+'px'
 			break
 		case 'right': 
 			if((t=this.world.width-asNum(this.doc.section.style.paddingRight))>=0)
 				style.right=0
 			else
-				style.right=-t+'pt'
+				style.right=-t+'px'
 			break
 		case 'inside': 
 			style.left=0
@@ -43,7 +43,7 @@ var PositionH={
 			style.right=0
 			break
 		default:
-			style.left=x.posOffset+'pt'
+			style.left=x.posOffset+'px'
 			break
 		}
 	},
@@ -55,14 +55,14 @@ var PositionH={
 			this.style.left=sect.paddingLeft
 			break
 		case 'center':
-			this.style.left=(asNum(sect.width)-asNum(sect.paddingRight)+asNum(sect.paddingLeft)-this.world.width)/2+'pt'
+			this.style.left=(asNum(sect.width)-asNum(sect.paddingRight)+asNum(sect.paddingLeft)-this.world.width)/2+'px'
 			break
 		case 'outside': 
 		case 'right': 
 			this.style.right=sect.paddingRight
 			break
 		default:
-			this.style.left=(x.posOffset+asNum(sect.paddingLeft))+'pt'
+			this.style.left=(x.posOffset+asNum(sect.paddingLeft))+'px'
 			break
 		}
 	},
@@ -102,7 +102,7 @@ var PositionV={
 			Anchor.addClass(this.parent.content,'unsupported unsupported-positionV-page-'+x.align)
 		break
 		default:
-			style.top=x.posOffset+'pt'
+			style.top=x.posOffset+'px'
 		break
 		}
 	},
@@ -121,7 +121,7 @@ var PositionV={
 			Anchor.addClass(this.parent.content,'unsupported unsupported-positionV-margin-'+x.align)
 		break
 		default:
-			style.top=asNum(sect.paddingTop)+x.posOffset+'pt'
+			style.top=asNum(sect.paddingTop)+x.posOffset+'px'
 		break
 		}
 	},

@@ -5,13 +5,15 @@
 	<script>
 		function test(input){
 			require("docx2html")(input.files[0]).then(function(converted){
-				document.querySelector('textarea').value=converted.toString()
+				text.value=converted.toString()
 			})
 		}
 	</script>
 </head>
 <body>
 	<input type="file" style="position:absolute;top:0" onchange="test(this)">
+	<br/>
+	<br/>
 	<textarea id="text"></textarea>
 </body>
 </html>

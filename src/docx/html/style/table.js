@@ -76,10 +76,10 @@ Table.Properties=class Properties extends Style.Properties{
 	}
 	tblCellMar(x){
 		for(var i in x)
-			this.doc.createStyle(this.tableSelector+'>tr>td')['padding'+this.upperFirst(i)]=(x[i]<1 && x[i]>0 ? 1 : x[i])+'pt'//0002
+			this.doc.createStyle(this.tableSelector+'>tr>td')['padding'+this.upperFirst(i)]=(x[i]<1 && x[i]>0 ? 1 : x[i])+'px'//0002
 	}
 	tblInd(x){
-		x && (this.style.marginLeft=x+'pt')
+		x && (this.style.marginLeft=x+'px')
 	}
 	tblW(x){
 		x && x!='auto' && (this.style.width=x)
