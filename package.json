@@ -33,14 +33,14 @@
     "karma-chrome-launcher": "^0.2.3",
     "karma-jasmine": "^0.3.8",
     "uglify-js": "^2.6.2",
+    "uglifyify": "^5.0.2",
     "watchify": ">=3.0.0 <4.0.0"
   },
   "dependencies": {
     "babel-runtime": "^6.18.0",
-    "docx4js": "^1.x.x",
+    "docx4js": "alexislkhagvadorj/docx4js#xmldom",
     "jsdom": "^8.3.1",
-    "jszip": "^3.0.0",
-    "uglifyify": "^5.0.2"
+    "jszip": "^3.0.0"
   },
   "babel": {
     "presets": [

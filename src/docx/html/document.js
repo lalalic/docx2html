@@ -128,7 +128,7 @@ export default class Document extends Converter{
             return this.id+(uid++)
           },
           toString(opt, props){
-            if(opt && typeof opt.template!="undefined" && $.isFunction(opt.template))
+            if(opt && typeof opt.template!="undefined" && $tool.isFunction(opt.template))
               return opt.template(this.getStyleText(), this._html(), props)
             var html=['<!doctype html>\r\n<html><head><meta charset=utf-8><meta key="generator" value="docx2html"><title>'+(props.name||'')+'</title><style>']
             html.push(this.getStyleText())
@@ -200,7 +200,7 @@ export default class Document extends Converter{
         var stylesheet=doc.createStyleSheet()
         var relStyles={}, styles={}
 
-        return Object.assign(selfConverter[$.isNode ? 'nodefy' : 'browserify'](doc,stylesheet, opt),{
+        return Object.assign(selfConverter[$tool.isNode ? 'nodefy' : 'browserify'](doc,stylesheet, opt),{
           createStyle(selector){
             if(styles[selector])
               return styles[selector]
@@ -224,7 +224,7 @@ export default class Document extends Converter{
           }
         })
       })(doc)
-    })($.isNode ? createDocument() : document)
+    })($tool.isNode ? createDocument() : document)
   }
 
   static nodefy(doc, stylesheet, opt){
@@ -280,7 +280,7 @@ export default class Document extends Converter{
       },
       save(opt, props){
         var hasImage=false, images={}, me=this;
-        return $.Deferred.when((this.images && Object.keys(this.images)||[]).map(function(a){
+        return $tool.Deferred.when((this.images && Object.keys(this.images)||[]).map(function(a){
           hasImage=true
           return opt.saveImage(this[a],props)
             .then(function(url){return images[a]=url})
@@ -317,4 +317,4 @@ export default class Document extends Converter{
 
   global.btoa=window.btoa
   CSSStyleDeclaration=window.CSSStyleDeclaration
-})($.isNode, "jsdom")
+})($tool.isNode, "jsdom")

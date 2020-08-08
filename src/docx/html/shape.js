@@ -8,7 +8,7 @@ var AZ=/[A-Z]/g,
 function asStyle(x){
   var a=[]
   for(var i in x)
-    !$.isFunction(x[i]) && a.push(i.replace(AZ,r)+':'+x[i])
+    !$tool.isFunction(x[i]) && a.push(i.replace(AZ,r)+':'+x[i])
   return a.join(';')
 }
 
