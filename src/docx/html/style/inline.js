@@ -13,7 +13,7 @@ export default class Inline extends Style{
 
 Inline.Properties=class Properties extends Style.Properties{
   rFonts(x){
-    x.ascii && (this.style.fontFamily=x.ascii)
+    x && x.ascii && (this.style.fontFamily=x.ascii)
   }
   b(x){
     this.style.fontWeight=700
