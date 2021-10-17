@@ -13,9 +13,6 @@ function failx(done){
 
 describe("docx2html style", ()=>{
 	let wA="<w:p><w:r><w:t>hello</w:t></w:r></w:p>"
-	describe("document", ()=>{
-		it("background").pend("newDocx doesn't support to put <w:background> out of w:body")
-	})
 
 	describe("section", ()=>{//ever hacked for jsdom-nogyp, but removed the code for latest jsdom
 		let TargetStyle=require("../lib/docx/html/style/section")
@@ -28,8 +25,8 @@ describe("docx2html style", ()=>{
 				expect(TargetStyle.prototype.size).toHaveBeenCalled()
 				expect(TargetStyle.prototype.margin).toHaveBeenCalled()
 				var style=html.content.querySelector('section').style
-				expect(style.width).toBe(asPt(12240))
-				expect(style.minHeight).toBe(asPt(15840))
+				expect(style.width).toBe("816px")
+				expect(style.minHeight).toBe("1056px")
 				done()
 			})
 		})
@@ -123,43 +120,6 @@ describe("docx2html style", ()=>{
 					done()
 				}).catch(failx(done))
 			})
-
-			xit("list", done=>{
-				let TargetStyle=require("../lib/docx/html/style/list")
-				spyOn(TargetStyle.prototype,"convert").and.callThrough()
-
-				docx2html(newDocx({"word/styles.xml":`
-						<w:style w:type="numbering" w:default="1" w:styleId="NoList">
-							<w:name w:val="No List"/>
-							<w:uiPriority w:val="99"/>
-							<w:semiHidden/>
-							<w:unhideWhenUsed/>
-						</w:style>`}))
-				.then(html=>{
-					expect(TargetStyle.prototype.convert).toHaveBeenCalled()
-					done()
-				}).catch(failx(done))
-			})
-		})
-
-		describe("named style", ()=>{
-			it("paragraph")
-
-			it("character")
-
-			it("table")
-
-			it("list")
-		})
-
-		describe("inherit", ()=>{
-			it("paragraph")
-
-			it("character")
-
-			it("table")
-
-			it("list")
 		})
 
 
@@ -238,26 +198,6 @@ describe("docx2html style", ()=>{
 					done()
 				}).catch(failx(done))
 			})
-
-			it("list")
 		})
-
-		describe("mixed named and direct style",()=>{
-			it("paragraph")
-
-			it("character")
-
-			it("table")
-
-			it("list")
-		})
-	})
-
-	describe("table", ()=>{
-
-	})
-
-	describe("shape", ()=>{
-
 	})
 })

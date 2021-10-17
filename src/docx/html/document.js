@@ -127,7 +127,7 @@ export default class Document extends Converter{
 					uid(){
 						return this.id+(uid++)
 					},
-					toString(opt, props){
+					toString(opt, props=selfConverter.props){
 						if(opt && typeof opt.template!="undefined" && $.isFunction(opt.template))
 							return opt.template(this.getStyleText(), this._html(), props)
 						var html=['<!doctype html>\r\n<html><head><meta charset=utf-8><meta key="generator" value="docx2html"><title>'+(props.name||'')+'</title><style>']

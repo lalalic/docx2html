@@ -1,6 +1,40 @@
+docx2html
+===
 **docx2html** is a javascript converter from docx to html on **nodejs** and **browser**.
 
-It is based on [docx4js](/docx4js) to parse docx, and utilize docx4js api to traverse docx models and convert docx models to html elements.
+installation
+===
+<code>npm install docx2html</code>
+
+example
+===
+```js
+const docx2html=require("docx2html")
+docx2html(input.files[0])
+/** you can do further with utilities in converted html
+	.then(html=>{
+		//html.toString()
+		//html.asZip/download/save
+	})
+*/
+```
+
+api
+===
+* docx2html(docx, options), return a promise object, options support
+  * container: a HTMLElement to append converted html, default value is document.body
+  * asImageURL(data): to convert image data to url, only required for nodejs
+
+* the promise object resolved with an object with following functions
+ * toString(/*options:{template(style,body,props), extendScript:}*/)
+ * asZip(options)
+ * download(options)
+ * save(options)
+ * release(): to release image resources
+
+
+
+It is based on [docx4js 1.x](/docx4js) to parse docx, and utilize docx4js api to traverse docx models and convert docx models to html elements.
 
 Ideally, each docx model should have a specific converter to create accordingly html elements, so the design is simply to map from type of docx model to html element constructor.
 
@@ -14,9 +48,9 @@ It keeps header and footer for every section, but there's no conditional conside
 
 Word Field is kept, while so far only link is supported.
 
-##Feature
+Feature
+===
 **environment**
-
 * nodejs
 * browser
 	* IE9+
@@ -74,44 +108,7 @@ Word Field is kept, while so far only link is supported.
 			* margin/leftMargin/RightMargin/inMargin/outMargin/column
 				* left/right/center/absolute
 
-##ToDo
+## ToDo
 * more shapes
 * word art
 * chart
-
-##API
-require('docx2html') directly return the function, docx2html
-
-###docx2html(file, option) : return Promise
-**option** will pass to every converter, supports:
-
-* container: only for browser, the container of converted content, default body
-* asImageURL: function(image buffer), return image url.
-
-Result of returned promise with following interface, toString support nodejs and browser, and all others are only for browser.
-
-* toString(option), option supports following
- * template: function(style, html, props){ /**/}, if it's set, toString returns this function's return. otherwise, the return is a html file content.
-
- * extendScript: such as "http://a.com/a.js". valid only when template is not set. the extended script will be inserted right before </html>
-* asZip(option) : option is same with that of toString
-* download(option) : option is same with that of toString
-* save(option): return Promise resolved by option.saveHtml's return value, option supports following
-	* template : function(style, html, props), same with option of toString,
-	* extendScript: same with option of toString,
-	* saveImage: function(arrayBuffer, doc.props): promise(url) {},
-	* saveHtml: function(html, doc.props){}
-
-**nodejs**
-
-	var docx2html=require('docx2html')
-	docx2html("c:/temp/test.docx").then(function(html){
-		html.toString()
-	})
-
-**browser**
-
-	var docx2html=require('docx2html')
-	docx2html(fileInput.files[0],{container:document.getElementById('a')}).then(function(html){
-		html.toString()
-	})
