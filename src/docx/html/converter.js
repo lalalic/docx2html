@@ -45,7 +45,7 @@ export default class Converter{
 	release(){}
 
 	static asCssID(a){
-		return a.replace(/\s+/g,'_')
+		return a.replace(/\s+/g,'_').replace(/^\d/g,d=>"_"+d)
 	}
 	static addClass(el, classes){
 		el.setAttribute('class', (el.getAttribute('class')||'')+' '+classes)

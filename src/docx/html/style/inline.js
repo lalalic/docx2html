@@ -25,7 +25,7 @@ Inline.Properties=class Properties extends Style.Properties{
 		this.style.color=x
 	}
 	i(x){
-		this.style.fontStyle='italics'
+		this.style.fontStyle='italic'
 	}
 	u(x){
 		this.style.textDecoration='underline'
