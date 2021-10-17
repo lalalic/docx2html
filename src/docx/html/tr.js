@@ -12,16 +12,15 @@ export default class Tr extends Converter{
 }
 
 class Properties extends Style.RowProperties{
-	cnfStyle(x){
-		var names=[], PrioritiziedStyles=Style.prototype.PrioritiziedStyles, level=-1, t
-		for(var i=0;i<12;i++){
-			if(x.charAt(i)=='1'){
-				names.push(t=Style.TableStyles[i])
-				if((t=PrioritiziedStyles.indexOf(t))>level)
-					level=t
-			}
-		}
-		names.length && Td.addClass(this.parent.content,names.join(' '));
+	cnfStyle(names){
+		if(names.length==0)
+			return 
+
+		const PrioritiziedStyles=Style.prototype.PrioritiziedStyles
+		names=names.sort((a,b)=>PrioritiziedStyles.indexOf(a)-PrioritiziedStyles.indexOf(b))
+		const level=PrioritiziedStyles.indexOf(names[names.length-1])
+		
+		Tr.addClass(this.parent.content,names.join(' '));
 		for(var i=0;i<level;i++)
 			this.parent.content.setAttribute('x'+i,1)
 	}
