@@ -15,6 +15,7 @@ export default function docx2html(file, opt){
 		.then(docx=>{
 			const html=docx.parse(docx4js.createVisitorFactory(converters,opt))
 			return Object.create({
+				content: html.content, 
 				toString(){
 					return html.toString(...arguments)
 				},

@@ -6,7 +6,6 @@ describe("docx2html",()=>{
 		it("document, and section", (done)=>{
 			docx2html(newDocx())
 			.then(html=>{
-				expect(html.tag).toBe("html")
 				expect(!!html.content).toBe(true)
 				expect(html.content.querySelectorAll('section').length).toBe(1)
 				done()

@@ -1,11 +1,6 @@
-"use strict"
+const newDocx=require("docx4js/spec/newDocx")
+const docx2html=require("../lib")
 
-var newDocx=require("docx4js/spec/newDocx")
-var docx2html=require("../lib")
-
-function asPt(x){
-	return `${parseInt(x)/20.0}pt`
-}
 
 function failx(done){
 	return e=>{fail(e);done()}
