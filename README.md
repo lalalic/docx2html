@@ -26,12 +26,12 @@ api
   * asImageURL(data): to convert image data to url, only required for nodejs
 
 * the promise object resolved with an object with following functions
- * content: the converted dom
- * toString(/*options:{template(style,body,props), extendScript:}*/)
- * asZip(options)
- * download(options)
- * save(options)
- * release(): to release image resources
+  * content: the converted dom
+  * toString(/*options:{template(style,body,props), extendScript:}*/)
+  * asZip(options)
+  * download(options)
+  * save(options)
+  * release(): to release image resources
 
 
 
