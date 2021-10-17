@@ -1,0 +1,12 @@
+language: node_js
+node_js:
+ - 4.2
+
+before_deploy:
+ - npm run compile
+ - npm run build
+
+deploy:
+ provider: npm
+ email: "lalalic@139.com"
+ api_key: $NPM_KEY
