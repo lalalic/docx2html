@@ -33,8 +33,12 @@ api
   * save(options)
   * release(): to release image resources
 
+License
+===
+MIT, and I also provide commercial support for tickets and enhancement to pay my rent. 
 
-
+Feature
+===
 It is based on [docx4js 1.x](/docx4js) to parse docx, and utilize docx4js api to traverse docx models and convert docx models to html elements.
 
 Ideally, each docx model should have a specific converter to create accordingly html elements, so the design is simply to map from type of docx model to html element constructor.
@@ -49,8 +53,6 @@ It keeps header and footer for every section, but there's no conditional conside
 
 Word Field is kept, while so far only link is supported.
 
-Feature
-===
 **environment**
 * nodejs
 * browser
