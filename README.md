@@ -1,6 +1,7 @@
 docx2html
 ===
-**docx2html** is a javascript converter from docx to html on **nodejs** and **browser**.
+**docx2html** is a javascript converter from docx to html on **nodejs** and **browser**. 
+<a href="http://lalalic.github.io/docx2html/">here's</a> a demo.
 
 installation
 ===

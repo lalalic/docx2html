@@ -52,7 +52,7 @@
   "scripts": {
     "compile": "babel src -d lib --source-maps inline",
     "build": "browserify -r ./lib:docx2html -o dist/docx2html.min.js",
-    "dev": "watchify -v -d -r ./lib:docx2html -o dist/index.js -i jquery",
+    "dev": "watchify -v -d -r ./lib:docx2html -o docs/index.js -i jquery",
     "test": "jasmine"
   },
   "main": "./lib/index.js"

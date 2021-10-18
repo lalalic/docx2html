@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+	<title>docx2html example</title>
+<head>
+	<script src="index.js"></script>
+	<script>
+		function test(input){
+			require("docx2html")(input.files[0],{container:document.querySelector("#container")})
+				.then(html=>{
+					input.value=""
+					debugger
+					//try html.toString/asZip/download/save
+				})
+		}
+	</script>
+</head>
+<body>
+	<div>
+		<center>
+			<h2>select a docx to convert to html</h2>
+			<input type="file" onchange="test(this)"/>
+		</center>
+		<div id="container" style="margin:10px;padding:10px;border:1px solid; text-align:left; min-height:500px;"></div>
+	</div>
+</body>
+</html>
